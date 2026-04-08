@@ -481,10 +481,22 @@
 
     async function startRecording() {
       try {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+          alert('Recording is unavailable here. Open the app on HTTPS or localhost and allow microphone access.');
+          document.getElementById('modeIndicator').textContent = 'Recording unavailable in this browser context';
+          return;
+        }
+
         state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         state.mediaRecorder = new MediaRecorder(state.mediaStream);
         state.recordedChunks = [];
         state.mediaRecorder.addEventListener('dataavailable', (e) => state.recordedChunks.push(e.data));
+        state.mediaRecorder.addEventListener('start', () => {
+          document.getElementById('modeIndicator').textContent = 'Recording in progress';
+        });
+        state.mediaRecorder.addEventListener('stop', () => {
+          document.getElementById('modeIndicator').textContent = 'Recording stopped';
+        });
         state.mediaRecorder.start();
         state.isRecording = true;
         document.getElementById('recordBtn').classList.add('active');
@@ -500,6 +512,9 @@
       state.mediaStream.getTracks().forEach((track) => track.stop());
       state.isRecording = false;
       document.getElementById('recordBtn').classList.remove('active');
+      if (state.mode !== 'record') {
+        document.getElementById('modeIndicator').textContent = 'Recording stopped';
+      }
     }
 
     function addSample(position) {
