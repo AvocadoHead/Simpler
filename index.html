@@ -152,6 +152,26 @@
       flex: 1;
     }
 
+    .syllable-overlay {
+      position: absolute;
+      inset: 8px 10px auto 10px;
+      height: 28px;
+      pointer-events: none;
+    }
+
+    .syllable-chip {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: var(--text);
+      background: rgba(7, 12, 24, 0.66);
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
+
     canvas {
       width: 100%;
       height: 100%;
@@ -160,13 +180,14 @@
 
     .sample-marker {
       position: absolute;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
+      height: 30px;
+      border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.35);
       box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.3);
-      cursor: pointer;
-      transform: translate(-50%, -50%);
+      cursor: grab;
+      transform: translateY(-50%);
+      top: 50%;
+      min-width: 20px;
     }
 
     .sample-marker.c1 { background: #f7a8a8; }
@@ -355,6 +376,7 @@
         <h2 class="panel-title">Waveform Workspace</h2>
         <div class="canvas-container">
           <canvas id="waveformCanvas"></canvas>
+          <div class="syllable-overlay" id="syllableOverlay"></div>
         </div>
       </section>
 
@@ -383,8 +405,13 @@
         </section>
 
         <section>
-          <h2 class="panel-title">Multilingual Transcript</h2>
-          <div class="transcript-list" id="transcriptList"></div>
+          <h2 class="panel-title">Transcript (Auto language detection)</h2>
+          <div class="transcript-list">
+            <div class="transcript-item">
+              <span class="transcript-lang" id="detectedLanguage">Language: Unknown</span>
+              <p class="transcript-content" id="transcriptDisplay">No transcript yet.</p>
+            </div>
+          </div>
         </section>
       </aside>
     </main>
@@ -426,12 +453,10 @@
       meterFrame: null,
       recognition: null,
       liveTranscript: '',
-      transcripts: [
-        { language: 'English', text: 'Welcome to Simpler. This preview demonstrates robust multilingual text flow.' },
-        { language: 'Arabic', text: 'مرحبا بكم في Simpler حيث تمتزج الجمل العربية مع English words بشكل متوازن.' },
-        { language: 'Hebrew', text: 'ברוכים הבאים ל-Simpler עם שילוב natural של English ומקטעים בעברית.' },
-        { language: 'Japanese', text: 'Simpler は日本語と English の混在テキストも自然に整列します。' }
-      ]
+      transcriptText: '',
+      detectedLanguage: 'Unknown',
+      fullSampleUrl: null,
+      fullSampleBuffer: null
     };
 
     const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
@@ -484,13 +509,28 @@
       ctx.lineTo(width, height / 2);
       ctx.stroke();
 
-      state.samples.forEach((sample) => {
-        const x = (sample.position / 100) * width;
-        ctx.fillStyle = window.getComputedStyle(document.querySelector(`.sample-marker.${sample.color}`) || document.body).backgroundColor || '#8fbcff';
-        ctx.globalAlpha = 0.36;
-        ctx.fillRect(x - 6, height / 2 - 28, 12, 56);
-        ctx.globalAlpha = 1;
-      });
+      if (!state.fullSampleBuffer) return;
+
+      const channel = state.fullSampleBuffer.getChannelData(0);
+      const step = Math.max(1, Math.floor(channel.length / width));
+      ctx.strokeStyle = 'rgba(143, 188, 255, 0.95)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+
+      for (let x = 0; x < width; x += 1) {
+        let min = 1;
+        let max = -1;
+        const start = x * step;
+        const end = Math.min(channel.length, start + step);
+        for (let i = start; i < end; i += 1) {
+          const value = channel[i];
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+        ctx.moveTo(x, (1 + min) * 0.5 * height);
+        ctx.lineTo(x, (1 + max) * 0.5 * height);
+      }
+      ctx.stroke();
     }
 
     function createSequencerCircles() {
@@ -528,9 +568,16 @@
 
       document.getElementById('waveformCanvas').addEventListener('click', (e) => {
         if (state.mode !== 'edit') return;
+        if (!state.fullSampleBuffer) return;
         const rect = e.target.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        addSample((x / rect.width) * 100);
+        const pct = x / rect.width;
+        const duration = state.fullSampleBuffer.duration;
+        const center = pct * duration;
+        const clipLength = Math.min(1.2, duration / 3);
+        const start = Math.max(0, center - clipLength / 2);
+        const end = Math.min(duration, start + clipLength);
+        addSample(start, end);
       });
     }
 
@@ -593,19 +640,18 @@
       }
     }
 
-    function addSample(position, audioUrl = null, transcript = '') {
+    function addSample(start, end) {
       if (state.samples.length >= 10) return;
       const sample = {
         id: state.samples.length,
-        position,
+        start,
+        end,
         pitch: 0,
         stretch: 1,
         playspeed: 1,
         phase: 0,
         volume: 80,
-        color: colors[state.samples.length],
-        audioUrl,
-        transcript
+        color: colors[state.samples.length]
       };
       state.samples.push(sample);
       renderMarkers();
@@ -626,15 +672,20 @@
       const canvas = document.getElementById('waveformCanvas');
       const container = canvas.parentElement;
       document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
+      if (!state.fullSampleBuffer) return;
+      const duration = state.fullSampleBuffer.duration;
 
       state.samples.forEach((sample) => {
         const marker = document.createElement('div');
         marker.className = `sample-marker ${sample.color}`;
-        marker.style.left = `${sample.position}%`;
-        marker.style.top = '50%';
+        const startPct = (sample.start / duration) * 100;
+        const endPct = (sample.end / duration) * 100;
+        marker.style.left = `${startPct}%`;
+        marker.style.width = `${Math.max(2, endPct - startPct)}%`;
         if (state.selectedSample === sample.id) {
           marker.style.boxShadow = '0 0 0 4px rgba(105, 161, 255, 0.26), 0 0 12px rgba(105, 161, 255, 0.85)';
         }
+        makeClipDraggable(marker, sample);
         marker.addEventListener('click', () => selectSample(sample.id));
         container.appendChild(marker);
       });
@@ -644,62 +695,115 @@
     }
 
     function clearSamples() {
-      state.samples.forEach((sample) => {
-        if (sample.audioUrl) {
-          URL.revokeObjectURL(sample.audioUrl);
-        }
-      });
       state.samples = [];
       state.selectedSample = null;
+      state.transcriptText = '';
+      state.detectedLanguage = 'Unknown';
+      if (state.fullSampleUrl) {
+        URL.revokeObjectURL(state.fullSampleUrl);
+      }
+      state.fullSampleUrl = null;
+      state.fullSampleBuffer = null;
       document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
+      document.getElementById('syllableOverlay').innerHTML = '';
+      renderTranscript();
       const canvas = document.getElementById('waveformCanvas');
       drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
     }
 
+    function makeClipDraggable(marker, sample) {
+      let dragging = false;
+      let startX = 0;
+      let originalStart = 0;
+      let originalEnd = 0;
+
+      marker.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        startX = e.clientX;
+        originalStart = sample.start;
+        originalEnd = sample.end;
+        marker.setPointerCapture(e.pointerId);
+      });
+
+      marker.addEventListener('pointermove', (e) => {
+        if (!dragging || !state.fullSampleBuffer) return;
+        const rect = marker.parentElement.getBoundingClientRect();
+        const deltaPct = (e.clientX - startX) / rect.width;
+        const deltaSec = deltaPct * state.fullSampleBuffer.duration;
+        const length = originalEnd - originalStart;
+        let newStart = originalStart + deltaSec;
+        newStart = Math.max(0, Math.min(state.fullSampleBuffer.duration - length, newStart));
+        sample.start = newStart;
+        sample.end = newStart + length;
+        renderMarkers();
+      });
+
+      marker.addEventListener('pointerup', () => {
+        dragging = false;
+      });
+    }
+
     function playSequence() {
-      if (!state.samples.length) {
-        alert('No samples available for playback.');
+      if (!state.fullSampleBuffer) {
+        alert('No recording available for playback.');
         return;
+      }
+
+      if (state.audioContext?.state === 'suspended') {
+        state.audioContext.resume();
       }
 
       state.isPlaying = true;
       document.getElementById('playBtn').classList.add('active');
 
-      const ordered = [...state.samples].sort((a, b) => a.position - b.position);
-      const timelineMs = 4000;
+      if (!state.samples.length) {
+        playFullSample();
+        setTimeout(() => {
+          state.isPlaying = false;
+          document.getElementById('playBtn').classList.remove('active');
+        }, state.fullSampleBuffer.duration * 1000 + 120);
+        return;
+      }
 
-      ordered.forEach((sample, idx) => {
-        const delay = Math.round((sample.position / 100) * timelineMs);
+      const ordered = [...state.samples].sort((a, b) => a.start - b.start);
+      ordered.forEach((sample) => {
         setTimeout(() => {
           const marker = document.querySelectorAll('.sample-marker')[sample.id];
-          if (!marker) return;
-          marker.classList.add('playing');
-          setTimeout(() => marker.classList.remove('playing'), 110);
-          if (sample.audioUrl) {
-            playSampleAudio(sample);
+          if (marker) {
+            marker.classList.add('playing');
+            setTimeout(() => marker.classList.remove('playing'), 110);
           }
-        }, delay);
+          playClip(sample.start, sample.end);
+        }, sample.start * 1000);
       });
 
       setTimeout(() => {
         state.isPlaying = false;
         document.getElementById('playBtn').classList.remove('active');
-      }, timelineMs + 250);
+      }, state.fullSampleBuffer.duration * 1000 + 120);
     }
 
-    function playSampleAudio(sample) {
+    function playClip(start, end) {
       if (!state.audioContext || !state.masterGain) return;
-      const audio = new Audio(sample.audioUrl);
-      const source = state.audioContext.createMediaElementSource(audio);
+      const source = state.audioContext.createBufferSource();
       const gainNode = state.audioContext.createGain();
-      gainNode.gain.value = sample.volume / 100;
+      source.buffer = state.fullSampleBuffer;
+      gainNode.gain.value = 1;
       source.connect(gainNode);
       gainNode.connect(state.masterGain);
-      audio.play().catch((err) => console.warn('Playback failed:', err));
-      audio.addEventListener('ended', () => {
+      source.start(0, start, Math.max(0.04, end - start));
+      source.onended = () => {
         source.disconnect();
         gainNode.disconnect();
-      }, { once: true });
+      };
+    }
+
+    function playFullSample() {
+      if (!state.fullSampleBuffer || !state.audioContext || !state.masterGain) return;
+      const source = state.audioContext.createBufferSource();
+      source.buffer = state.fullSampleBuffer;
+      source.connect(state.masterGain);
+      source.start();
     }
 
     function setMasterGain(value) {
@@ -753,7 +857,7 @@
         for (let i = event.resultIndex; i < event.results.length; i += 1) {
           text += event.results[i][0].transcript;
         }
-        state.liveTranscript = text.trim();
+        state.liveTranscript = sanitizeTranscript(text.trim());
       };
 
       state.recognition.start();
@@ -765,24 +869,36 @@
       state.recognition = null;
     }
 
-    function finalizeRecordingSample() {
+    async function finalizeRecordingSample() {
       if (!state.recordedChunks.length) return;
       const blob = new Blob(state.recordedChunks, { type: 'audio/webm' });
       const url = URL.createObjectURL(blob);
-      const position = state.samples.length ? (state.samples[state.samples.length - 1].position + 10) % 100 : 10;
-      const transcript = state.liveTranscript || 'No speech detected.';
+      if (state.fullSampleUrl) {
+        URL.revokeObjectURL(state.fullSampleUrl);
+      }
+      state.fullSampleUrl = url;
+      state.fullSampleBuffer = await state.audioContext.decodeAudioData(await blob.arrayBuffer());
+      state.samples = [];
 
-      addSample(position, url, transcript);
-      state.transcripts.unshift({ language: 'Auto', text: transcript });
-      state.transcripts = state.transcripts.slice(0, 8);
+      const transcript = sanitizeTranscript(state.liveTranscript || 'No speech detected.');
+      state.transcriptText = transcript;
+      state.detectedLanguage = detectLanguageLabel(transcript);
       renderTranscript();
+      renderSyllableOverlay(transcript);
+      const canvas = document.getElementById('waveformCanvas');
+      drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
       state.recordedChunks = [];
       state.liveTranscript = '';
     }
 
     function saveSamples() {
-      localStorage.setItem('simpler_samples', JSON.stringify(state.samples));
-      alert('Samples saved.');
+      const payload = {
+        clips: state.samples,
+        transcriptText: state.transcriptText,
+        detectedLanguage: state.detectedLanguage
+      };
+      localStorage.setItem('simpler_samples', JSON.stringify(payload));
+      alert('Clip metadata saved. Recordings must be captured again after reload.');
     }
 
     function loadSamples() {
@@ -791,8 +907,13 @@
         alert('No saved samples found.');
         return;
       }
-      state.samples = JSON.parse(data);
+      const parsed = JSON.parse(data);
+      state.samples = parsed.clips || [];
+      state.transcriptText = parsed.transcriptText || '';
+      state.detectedLanguage = parsed.detectedLanguage || 'Unknown';
       renderMarkers();
+      renderTranscript();
+      renderSyllableOverlay(state.transcriptText);
       alert('Samples loaded.');
     }
 
@@ -802,25 +923,60 @@
     }
 
     function renderTranscript() {
-      const list = document.getElementById('transcriptList');
-      list.innerHTML = '';
+      const langLabel = document.getElementById('detectedLanguage');
+      const transcriptNode = document.getElementById('transcriptDisplay');
+      langLabel.textContent = `Language: ${state.detectedLanguage}`;
+      transcriptNode.innerHTML = '';
+      transcriptNode.dir = 'auto';
+      transcriptNode.appendChild(buildBidiFragment(state.transcriptText || 'No transcript yet.'));
+    }
 
-      state.transcripts.forEach((item) => {
-        const row = document.createElement('article');
-        row.className = 'transcript-item';
-
-        const lang = document.createElement('span');
-        lang.className = 'transcript-lang';
-        lang.textContent = item.language;
-
-        const content = document.createElement('p');
-        content.className = 'transcript-content';
-        content.dir = 'auto';
-        content.appendChild(buildBidiFragment(item.text));
-
-        row.append(lang, content);
-        list.appendChild(row);
+    function sanitizeTranscript(text) {
+      const blocked = ['dick', 'd!ck'];
+      let cleaned = text;
+      blocked.forEach((term) => {
+        const pattern = new RegExp(term.replace('!', '[!i]'), 'gi');
+        cleaned = cleaned.replace(pattern, '****');
       });
+      return cleaned;
+    }
+
+    function detectLanguageLabel(text) {
+      if (/[\u0600-\u06FF]/.test(text)) return 'Arabic';
+      if (/[\u0590-\u05FF]/.test(text)) return 'Hebrew';
+      if (/[\u3040-\u30FF]/.test(text)) return 'Japanese';
+      if (/[\u4E00-\u9FFF]/.test(text)) return 'Chinese';
+      return 'English / Latin';
+    }
+
+    function renderSyllableOverlay(text) {
+      const overlay = document.getElementById('syllableOverlay');
+      overlay.innerHTML = '';
+      if (!state.fullSampleBuffer) return;
+      const syllables = splitIntoSyllables(text).slice(0, 24);
+      syllables.forEach((syllable, index) => {
+        const chip = document.createElement('span');
+        chip.className = 'syllable-chip';
+        const position = ((index + 1) / (syllables.length + 1)) * 100;
+        chip.style.left = `${position}%`;
+        chip.textContent = syllable;
+        overlay.appendChild(chip);
+      });
+    }
+
+    function splitIntoSyllables(text) {
+      const words = text.split(/\s+/).filter(Boolean);
+      const result = [];
+      words.forEach((word) => {
+        if (/^[A-Za-z]+$/.test(word)) {
+          const parts = word.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]|$)/gi) || [word];
+          result.push(...parts.map((p) => p.toLowerCase()));
+        } else {
+          const chars = word.match(/.{1,2}/g) || [word];
+          result.push(...chars);
+        }
+      });
+      return result;
     }
 
     function buildBidiFragment(text) {
