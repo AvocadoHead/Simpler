@@ -1,669 +1,660 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
-    <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <title>Simpler - Intuitive Sequencer</title>
-        <style>
-                    :root {
-                                    --bg: #121212;
-                                    --surface: #1e1e1e;
-                                    --text: #e0e0e0;
-                                    --accent: #4a9eff;
-                    }
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simpler - Multilingual Transcription Sequencer</title>
+  <style>
+    :root {
+      --bg: #090b12;
+      --bg-soft: #111725;
+      --panel: rgba(14, 20, 34, 0.82);
+      --panel-border: rgba(163, 189, 255, 0.22);
+      --text: #edf2ff;
+      --text-soft: #a8b4cf;
+      --accent: #69a1ff;
+      --accent-strong: #8fbcff;
+      --danger: #ff7a7a;
+      --shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+    }
 
-                    body.light-mode {
-                                    --bg: #f5f5f5;
-                                    --surface: #ffffff;
-                                    --text: #333;
-                    }
+    body.light-mode {
+      --bg: #eef2fa;
+      --bg-soft: #f7f9ff;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-border: rgba(122, 142, 190, 0.3);
+      --text: #1d2638;
+      --text-soft: #5f6f8e;
+      --accent: #356de8;
+      --accent-strong: #1950c8;
+      --danger: #cb4141;
+      --shadow: 0 20px 36px rgba(30, 58, 120, 0.12);
+    }
 
-                    * {
-                                    box-sizing: border-box;
-                    }
+    * { box-sizing: border-box; }
 
-                    body {
-                                    margin: 0;
-                                    padding: 0;
-                                    background: var(--bg);
-                                    color: var(--text);
-                                    font-family: 'Segoe UI', system-ui, sans-serif;
-                                    display: flex;
-                                    flex-direction: column;
-                                    height: 100vh;
-                                    overflow: hidden;
-                                    transition: background 0.3s;
-                    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(105, 161, 255, 0.18), transparent 44%),
+        radial-gradient(circle at 92% 100%, rgba(130, 235, 188, 0.12), transparent 36%),
+        linear-gradient(140deg, var(--bg), var(--bg-soft));
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
 
-                    /* Header */
-                    .header {
-                                    display: flex;
-                                    justify-content: space-between;
-                                    align-items: center;
-                                    padding: 12px 20px;
-                                    background: var(--surface);
-                                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                                    z-index: 100;
-                    }
+    .app-shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100vh;
+      gap: 14px;
+      padding: 14px;
+    }
 
-                    .header h1 {
-                                    margin: 0;
-                                    font-size: 18px;
-                                    font-weight: 600;
-                    }
+    .header,
+    .bottom-panel,
+    .content,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
 
-                    .controls {
-                                    display: flex;
-                                    gap: 12px;
-                    }
+    .header {
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-                    .btn {
-                                    padding: 8px 16px;
-                                    background: var(--surface);
-                                    color: var(--text);
-                                    border: 1px solid rgba(255, 255, 255, 0.2);
-                                    border-radius: 6px;
-                                    cursor: pointer;
-                                    font-size: 13px;
-                                    transition: all 0.2s;
-                    }
+    .title-block h1 {
+      margin: 0;
+      font-size: clamp(1.05rem, 1.8vw, 1.45rem);
+    }
 
-                    .btn:hover {
-                                    background: var(--accent);
-                                    color: #fff;
-                                    border-color: var(--accent);
-                    }
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--text-soft);
+      font-size: 0.86rem;
+    }
 
-                    .btn.active {
-                                    background: var(--accent);
-                                    color: #fff;
-                    }
+    .controls,
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
-                    /* Main Content */
-                    .main-container {
-                                    display: flex;
-                                    flex: 1;
-                                    overflow: hidden;
-                    }
+    .btn {
+      border: 1px solid var(--panel-border);
+      background: color-mix(in srgb, var(--panel) 74%, transparent);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.87rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
 
-                    /* Waveform Area */
-                    .waveform-area {
-                                    flex: 1;
-                                    display: flex;
-                                    flex-direction: column;
-                                    background: var(--bg);
-                                    overflow: hidden;
-                    }
+    .btn:hover,
+    .btn:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+      transform: translateY(-1px);
+    }
 
-                    .canvas-container {
-                                    flex: 1;
-                                    position: relative;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    overflow: hidden;
-                    }
+    .btn.active {
+      background: linear-gradient(130deg, var(--accent), var(--accent-strong));
+      color: #fff;
+      border-color: transparent;
+    }
 
-                    canvas {
-                                    width: 100%;
-                                    height: 100%;
-                                    cursor: crosshair;
-                    }
+    .content {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: 14px;
+      min-height: 0;
+    }
 
-                    /* Sample Markers (Circles) - Much Smaller */
-                    .sample-marker {
-                                    position: absolute;
-                                    width: 14px;
-                                    height: 14px;
-                                    border-radius: 50%;
-                                    cursor: grab;
-                                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-                                    z-index: 10;
-                                    transition: transform 0.1s;
-                                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    }
+    .waveform-area,
+    .sequencer-panel {
+      border-radius: var(--radius-md);
+      border: 1px solid var(--panel-border);
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      min-height: 0;
+    }
 
-                    .sample-marker:hover {
-                                    transform: scale(1.3);
-                                    z-index: 11;
-                    }
+    .waveform-area {
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+    }
 
-                    .sample-marker:active {
-                                    cursor: grabbing;
-                    }
+    .canvas-container {
+      position: relative;
+      min-height: 300px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--panel-border);
+      overflow: hidden;
+      background: rgba(8, 12, 22, 0.45);
+      flex: 1;
+    }
 
-                    /* Color palette for samples (pastel metallic) */
-                    .sample-marker.c1 { background: #FFB3BA; }
-                    .sample-marker.c2 { background: #FFCCCB; }
-                    .sample-marker.c3 { background: #FFE4B5; }
-                    .sample-marker.c4 { background: #E0FFCC; }
-                    .sample-marker.c5 { background: #CCE5FF; }
-                    .sample-marker.c6 { background: #E0CCFF; }
-                    .sample-marker.c7 { background: #FFCCF0; }
-                    .sample-marker.c8 { background: #C7FFDA; }
-                    .sample-marker.c9 { background: #FFF0CC; }
-                    .sample-marker.c10 { background: #D4EBFF; }
+    canvas {
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
 
-                    /* Bottom Controls Panel */
-                    .bottom-panel {
-                                    background: var(--surface);
-                                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                                    padding: 12px 20px;
-                                    display: flex;
-                                    gap: 20px;
-                                    align-items: center;
-                                    height: 80px;
-                                    overflow-x: auto;
-                    }
+    .sample-marker {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+    }
 
-                    .mode-indicator {
-                                    font-size: 12px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 1px;
-                                    color: var(--accent);
-                                    font-weight: 600;
-                    }
+    .sample-marker.c1 { background: #f7a8a8; }
+    .sample-marker.c2 { background: #ffd3a8; }
+    .sample-marker.c3 { background: #ffe89f; }
+    .sample-marker.c4 { background: #cbf1ac; }
+    .sample-marker.c5 { background: #9de3d5; }
+    .sample-marker.c6 { background: #9fc3ff; }
+    .sample-marker.c7 { background: #bca4ff; }
+    .sample-marker.c8 { background: #edb2ff; }
+    .sample-marker.c9 { background: #ffbad9; }
+    .sample-marker.c10 { background: #c8d8e8; }
 
-                    .action-buttons {
-                                    display: flex;
-                                    gap: 8px;
-                    }
+    .sample-marker.playing { animation: pulse 0.28s ease-in-out; }
 
-                    /* Sequencer Panel (Right Side) */
-                    .sequencer-panel {
-                                    width: 280px;
-                                    background: var(--surface);
-                                    border-left: 1px solid rgba(255, 255, 255, 0.1);
-                                    padding: 16px;
-                                    overflow-y: auto;
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 16px;
-                    }
+    .sequencer-panel {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 12px;
+      padding: 12px;
+      overflow: auto;
+    }
 
-                    .sequencer-panel h3 {
-                                    margin: 0;
-                                    font-size: 13px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 1px;
-                                    color: rgba(255, 255, 255, 0.5);
-                    }
+    .panel-title {
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-soft);
+      font-size: 0.75rem;
+    }
 
-                    .sequencer-grid {
-                                    display: grid;
-                                    grid-template-columns: repeat(5, 1fr);
-                                    gap: 8px;
-                    }
+    .sequencer-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(36px, 1fr));
+      gap: 8px;
+    }
 
-                    .sequencer-circle {
-                                    aspect-ratio: 1;
-                                    border-radius: 50%;
-                                    cursor: pointer;
-                                    border: 2px solid rgba(255, 255, 255, 0.2);
-                                    transition: all 0.2s;
-                                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-                    }
+    .sequencer-circle {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
 
-                    .sequencer-circle:hover {
-                                    border-color: rgba(255, 255, 255, 0.5);
-                                    transform: scale(1.05);
-                    }
+    .sequencer-circle.active,
+    .sequencer-circle:hover {
+      border-color: #fff;
+      transform: scale(1.05);
+    }
 
-                    .sequencer-circle.active {
-                                    border-color: #fff;
-                                    box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
-                    }
+    .edit-panel { display: none; gap: 9px; }
+    .edit-panel.active { display: grid; }
 
-                    /* Edit Panel */
-                    .edit-panel {
-                                    display: none;
-                                    flex-direction: column;
-                                    gap: 12px;
-                                    padding-top: 12px;
-                                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                    }
+    .param-label {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      letter-spacing: 0.07em;
+    }
 
-                    .edit-panel.active {
-                                    display: flex;
-                    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-                    .param-control {
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 6px;
-                    }
+    .transcript-list {
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+      background: rgba(8, 11, 20, 0.28);
+    }
 
-                    .param-label {
-                                    font-size: 11px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 0.8px;
-                                    color: rgba(255, 255, 255, 0.6);
-                    }
+    .transcript-item {
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
 
-                    .control-knob {
-                                    width: 60px;
-                                    height: 60px;
-                                    border-radius: 50%;
-                                    border: 3px solid rgba(255, 255, 255, 0.3);
-                                    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.3));
-                                    cursor: pointer;
-                                    position: relative;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 11px;
-                                    color: rgba(255, 255, 255, 0.8);
-                                    transition: all 0.2s;
-                    }
+    .transcript-lang {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.68rem;
+    }
 
-                    .control-knob:hover {
-                                    border-color: rgba(255, 255, 255, 0.6);
-                    }
+    .transcript-content {
+      white-space: pre-wrap;
+      unicode-bidi: plaintext;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
 
-                    .control-knob::after {
-                                    content: '';
-                                    position: absolute;
-                                    width: 2px;
-                                    height: 18px;
-                                    background: var(--accent);
-                                    top: 8px;
-                                    border-radius: 1px;
-                                    transform-origin: center 26px;
-                    }
+    .bidi-run {
+      unicode-bidi: isolate;
+      padding-inline: 1px;
+    }
 
-                    .knob-row {
-                                    display: flex;
-                                    gap: 8px;
-                                    justify-content: space-around;
-                    }
+    .bottom-panel {
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-                    /* Responsive */
-                    @media (max-width: 768px) {
-                                    .main-container {
-                                                        flex-direction: column;
-                                    }
+    .mode-indicator { font-size: 0.84rem; color: var(--text-soft); }
 
-                                    .sequencer-panel {
-                                                        width: 100%;
-                                                        border-left: none;
-                                                        border-top: 1px solid rgba(255, 255, 255, 0.1);
-                                                        height: auto;
-                                                        max-height: 200px;
-                                    }
+    @keyframes pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
+      45% { transform: translate(-50%, -50%) scale(1.25); }
+    }
 
-                                    .bottom-panel {
-                                                        height: auto;
-                                    }
+    @media (max-width: 1000px) {
+      .content { grid-template-columns: 1fr; }
+      .canvas-container { min-height: 260px; }
+    }
 
-                                    .sequencer-grid {
-                                                        grid-template-columns: repeat(10, 1fr);
-                                    }
-                    }
+    @media (max-width: 620px) {
+      .app-shell { padding: 10px; gap: 10px; }
+      .header, .content, .bottom-panel { border-radius: 14px; }
+      .btn { flex: 1 1 48%; text-align: center; }
+      .sequencer-grid { grid-template-columns: repeat(10, minmax(28px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header">
+      <div class="title-block">
+        <h1>Simpler</h1>
+        <p class="subtitle">Interface in English. Transcription can contain any language.</p>
+      </div>
+      <div class="controls">
+        <button class="btn active" data-mode="record">Record Mode</button>
+        <button class="btn" data-mode="edit">Edit Mode</button>
+        <button class="btn" data-mode="play">Play Mode</button>
+        <button class="btn" id="themeToggle">Theme</button>
+      </div>
+    </header>
 
-                    /* Play mode - hide edit controls */
-                    .play-mode .edit-panel {
-                                    display: none !important;
-                    }
-
-                    .play-mode .sequencer-grid {
-                                    max-height: 180px;
-                                    overflow-y: auto;
-                    }
-
-                    /* Animation */
-                    @keyframes pulse {
-                                    0%, 100% { opacity: 1; }
-                                    50% { opacity: 0.7; }
-                    }
-
-                    .sample-marker.playing {
-                                    animation: pulse 0.3s ease-in-out;
-                    }
-                </style>
-    </head>
-    <body>
-            <div class="header">
-                        <h1>סימפלר</h1>
-                    <div class="controls">
-                                <button class="btn active" data-mode="record">🎙️ הקלטה</button>button>
-                                <button class="btn" data-mode="edit">✏️ עריכה</button>button>
-                                <button class="btn" data-mode="play">▶️ נגינה</button>button>
-                                <button class="btn" id="themeToggle">🌓 מצב</button>button>
-                    </div>div>
-            </div>div>
-    
-        <div class="main-container">
-                <div class="waveform-area">
-                            <div class="canvas-container">
-                                            <canvas id="waveformCanvas"></canvas>canvas>
-                            </div>div>
-                </div>div>
-        
-                <div class="sequencer-panel">
-                            <div>
-                                                <h3>סדרה</h3>h3>
-                                                <div class="sequencer-grid" id="sequencerGrid">
-                                                                        <!-- Circles generated by JS -->
-                                                </div>
-                            </div>
-
-                                <div class="edit-panel" id="editPanel">
-                                                    <h3>עריכה</h3>h3>
-
-                                                    <div class="param-control">
-                                                                            <label class="param-label">מתיחה</label>label>
-                                                                            <input type="range" min="0.5" max="2" step="0.1" value="1" class="param-input" data-param="stretch">
-                                                    </div>
-
-                                                    <div class="param-control">
-                                                                            <label class="param-label">דרג תדר (Pitch)</label>label>
-                                                                            <div class="knob-row">
-                                                                                                        <div class="control-knob" data-param="pitch" title="Pitch">0</div>
-                                                                                </div>
-                                                    </div>
-
-                                                    <div class="param-control">
-                                                                            <label class="param-label">מהירות</label>label>
-                                                                            <input type="range" min="0.25" max="2" step="0.1" value="1" class="param-input" data-param="playspeed">
-                                                    </div>
-
-                                                    <div class="param-control">
-                                                                            <label class="param-label">פאזה</label>label>
-                                                                            <input type="range" min="0" max="360" step="1" value="0" class="param-input" data-param="phase">
-                                                    </div>
-
-                                                    <div class="param-control">
-                                                                            <label class="param-label">עוצמה (Volume)</label>label>
-                                                                            <input type="range" min="0" max="100" step="1" value="80" class="param-input" data-param="volume">
-                                                    </div>
-
-                                                    <div class="action-buttons" style="margin-top: 12px; flex-wrap: wrap;">
-                                                                            <button class="btn" id="saveBtn">💾 שמור</button>button>
-                                                                            <button class="btn" id="loadBtn">📂 טען</button>button>
-                                                    </div>
-                                </div>
-                </div>
+    <main class="content">
+      <section class="waveform-area">
+        <h2 class="panel-title">Waveform Workspace</h2>
+        <div class="canvas-container">
+          <canvas id="waveformCanvas"></canvas>
         </div>
+      </section>
 
-            <div class="bottom-panel">
-                        <div class="mode-indicator" id="modeIndicator">מצב הקלטה</div>
-                        <div class="action-buttons">
-                                        <button class="btn" id="recordBtn">⏺️ התחל</button>button>
-                                        <button class="btn" id="stopBtn">⏹️ עצור</button>button>
-                                        <button class="btn" id="playBtn">▶️ נגן</button>button>
-                                        <button class="btn" id="clearBtn">🗑️ נקה</button>button>
-                        </div>
-            </div>
+      <aside class="sequencer-panel">
+        <section>
+          <h2 class="panel-title">Step Sequencer</h2>
+          <div class="sequencer-grid" id="sequencerGrid"></div>
+        </section>
 
-            <script>
-                        // State
-                        const state = {
-                                        mode: 'record',
-                                        isDarkMode: true,
-                                        samples: [],
-                                        isRecording: false,
-                                        isPlaying: false,
-                                        selectedSample: null,
-                                        audioContext: null,
-                                        mediaStream: null,
-                                        mediaRecorder: null,
-                                        recordedChunks: []
-                        };
+        <section class="edit-panel" id="editPanel">
+          <h2 class="panel-title">Sample Edit</h2>
+          <label class="param-label" for="stretchRange">Stretch</label>
+          <input id="stretchRange" type="range" min="0.5" max="2" step="0.1" value="1" data-param="stretch">
+          <label class="param-label" for="pitchRange">Pitch</label>
+          <input id="pitchRange" type="range" min="-12" max="12" step="1" value="0" data-param="pitch">
+          <label class="param-label" for="speedRange">Playback Speed</label>
+          <input id="speedRange" type="range" min="0.25" max="2" step="0.1" value="1" data-param="playspeed">
+          <label class="param-label" for="phaseRange">Phase</label>
+          <input id="phaseRange" type="range" min="0" max="360" step="1" value="0" data-param="phase">
+          <label class="param-label" for="volumeRange">Volume</label>
+          <input id="volumeRange" type="range" min="0" max="100" step="1" value="80" data-param="volume">
+          <div class="action-buttons">
+            <button class="btn" id="saveBtn">Save</button>
+            <button class="btn" id="loadBtn">Load</button>
+          </div>
+        </section>
 
-                        const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
+        <section>
+          <h2 class="panel-title">Multilingual Transcript</h2>
+          <div class="transcript-list" id="transcriptList"></div>
+        </section>
+      </aside>
+    </main>
 
-                        // Initialize
-                        function init() {
-                                        setupCanvas();
-                                        setupEventListeners();
-                                        createSequencerCircles();
-                                        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        }
+    <footer class="bottom-panel">
+      <div class="mode-indicator" id="modeIndicator">Record mode active</div>
+      <div class="action-buttons">
+        <button class="btn" id="recordBtn">Start Recording</button>
+        <button class="btn" id="stopBtn">Stop Recording</button>
+        <button class="btn" id="playBtn">Play</button>
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+    </footer>
+  </div>
 
-                        // Canvas setup
-                        function setupCanvas() {
-                                        const canvas = document.getElementById('waveformCanvas');
-                                        const ctx = canvas.getContext('2d');
+  <script>
+    const state = {
+      mode: 'record',
+      isDarkMode: true,
+      samples: [],
+      isRecording: false,
+      isPlaying: false,
+      selectedSample: null,
+      mediaStream: null,
+      mediaRecorder: null,
+      recordedChunks: [],
+      transcripts: [
+        { language: 'English', text: 'Welcome to Simpler. This preview demonstrates robust multilingual text flow.' },
+        { language: 'Arabic', text: 'مرحبا بكم في Simpler حيث تمتزج الجمل العربية مع English words بشكل متوازن.' },
+        { language: 'Hebrew', text: 'ברוכים הבאים ל-Simpler עם שילוב natural של English ומקטעים בעברית.' },
+        { language: 'Japanese', text: 'Simpler は日本語と English の混在テキストも自然に整列します。' }
+      ]
+    };
 
-                                        const container = canvas.parentElement;
-                                        canvas.width = container.clientWidth;
-                                        canvas.height = container.clientHeight;
+    const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
 
-                                        // Draw placeholder waveform
-                                        drawWaveform(ctx, canvas.width, canvas.height);
+    function init() {
+      setupCanvas();
+      setupEventListeners();
+      createSequencerCircles();
+      renderTranscript();
+    }
 
-                                        window.addEventListener('resize', () => {
-                                                            canvas.width = container.clientWidth;
-                                                            canvas.height = container.clientHeight;
-                                                            drawWaveform(ctx, canvas.width, canvas.height);
-                                        });
-                        }
+    function setupCanvas() {
+      const canvas = document.getElementById('waveformCanvas');
+      const ctx = canvas.getContext('2d');
+      const container = canvas.parentElement;
 
-                        function drawWaveform(ctx, width, height) {
-                                        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-                                        ctx.fillRect(0, 0, width, height);
+      const redraw = () => {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        drawWaveform(ctx, canvas.width, canvas.height);
+      };
 
-                                        // Draw center line
-                                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                                        ctx.lineWidth = 1;
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height / 2);
-                                        ctx.lineTo(width, height / 2);
-                                        ctx.stroke();
+      redraw();
+      window.addEventListener('resize', redraw);
+    }
 
-                                        // Draw sample waveforms
-                                        if (state.samples.length > 0) {
-                                                            state.samples.forEach((sample, idx) => {
-                                                                                    const x = (sample.position / 100) * width;
-                                                                                    const color = window.getComputedStyle(document.querySelector(`.sample-marker.${colors[idx % colors.length]}`))?.backgroundColor || '#FFB3BA';
+    function drawWaveform(ctx, width, height) {
+      ctx.clearRect(0, 0, width, height);
 
-                                                                                    ctx.fillStyle = color;
-                                                                                    ctx.globalAlpha = 0.3;
-                                                                                    ctx.fillRect(x - 5, height / 2 - 20, 10, 40);
-                                                                                    ctx.globalAlpha = 1;
-                                                            });
-                                        }
-                        }
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, 'rgba(93, 140, 255, 0.24)');
+      gradient.addColorStop(1, 'rgba(120, 226, 184, 0.12)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
 
-                        // Sequencer circles
-                        function createSequencerCircles() {
-                                        const grid = document.getElementById('sequencerGrid');
-                                        grid.innerHTML = '';
+      ctx.strokeStyle = 'rgba(237, 242, 255, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
 
-                                        for (let i = 0; i < 10; i++) {
-                                                            const circle = document.createElement('div');
-                                                            circle.className = `sequencer-circle ${colors[i]}`;
-                                                            circle.dataset.sampleId = i;
-                                                            circle.addEventListener('click', () => selectSample(i));
-                                                            grid.appendChild(circle);
-                                        }
-                        }
+      state.samples.forEach((sample) => {
+        const x = (sample.position / 100) * width;
+        ctx.fillStyle = window.getComputedStyle(document.querySelector(`.sample-marker.${sample.color}`) || document.body).backgroundColor || '#8fbcff';
+        ctx.globalAlpha = 0.36;
+        ctx.fillRect(x - 6, height / 2 - 28, 12, 56);
+        ctx.globalAlpha = 1;
+      });
+    }
 
-                        // Event listeners
-                        function setupEventListeners() {
-                                        // Mode buttons
-                                        document.querySelectorAll('[data-mode]').forEach(btn => {
-                                                            btn.addEventListener('click', (e) => {
-                                                                                    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
-                                                                                    e.target.classList.add('active');
-                                                                                    switchMode(e.target.dataset.mode);
-                                                            });
-                                        });
+    function createSequencerCircles() {
+      const grid = document.getElementById('sequencerGrid');
+      grid.innerHTML = '';
 
-                                        // Control buttons
-                                        document.getElementById('recordBtn').addEventListener('click', startRecording);
-                                        document.getElementById('stopBtn').addEventListener('click', stopRecording);
-                                        document.getElementById('playBtn').addEventListener('click', playSequence);
-                                        document.getElementById('clearBtn').addEventListener('click', clearSamples);
-                                        document.getElementById('saveBtn').addEventListener('click', saveSamples);
-                                        document.getElementById('loadBtn').addEventListener('click', loadSamples);
-                                        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      for (let i = 0; i < 10; i += 1) {
+        const circle = document.createElement('div');
+        circle.className = `sequencer-circle ${colors[i]}`;
+        circle.dataset.sampleId = i;
+        circle.addEventListener('click', () => selectSample(i));
+        grid.appendChild(circle);
+      }
+    }
 
-                                        // Canvas interactions
-                                        document.getElementById('waveformCanvas').addEventListener('click', (e) => {
-                                                            if (state.mode === 'edit') {
-                                                                                    const rect = e.target.getBoundingClientRect();
-                                                                                    const x = e.clientX - rect.left;
-                                                                                    const position = (x / rect.width) * 100;
-                                                                                    addSample(position);
-                                                            }
-                                        });
-                        }
+    function setupEventListeners() {
+      document.querySelectorAll('[data-mode]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('[data-mode]').forEach((b) => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          switchMode(e.currentTarget.dataset.mode);
+        });
+      });
 
-                        // Mode switching
-                        function switchMode(mode) {
-                                        state.mode = mode;
-                                        const modeText = {
-                                                            record: 'מצב הקלטה',
-                                                            edit: 'מצב עריכה',
-                                                            play: 'מצב נגינה'
-                                        };
-                                        document.getElementById('modeIndicator').textContent = modeText[mode];
+      document.getElementById('recordBtn').addEventListener('click', startRecording);
+      document.getElementById('stopBtn').addEventListener('click', stopRecording);
+      document.getElementById('playBtn').addEventListener('click', playSequence);
+      document.getElementById('clearBtn').addEventListener('click', clearSamples);
+      document.getElementById('saveBtn').addEventListener('click', saveSamples);
+      document.getElementById('loadBtn').addEventListener('click', loadSamples);
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
-                                        if (mode === 'edit') {
-                                                            document.getElementById('editPanel').classList.add('active');
-                                        } else {
-                                                            document.getElementById('editPanel').classList.remove('active');
-                                        }
-                        }
+      document.getElementById('waveformCanvas').addEventListener('click', (e) => {
+        if (state.mode !== 'edit') return;
+        const rect = e.target.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        addSample((x / rect.width) * 100);
+      });
+    }
 
-                        // Recording
-                        async function startRecording() {
-                                        try {
-                                                            state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                                                            state.mediaRecorder = new MediaRecorder(state.mediaStream);
-                                                            state.recordedChunks = [];
+    function switchMode(mode) {
+      state.mode = mode;
+      const label = {
+        record: 'Record mode active',
+        edit: 'Edit mode active',
+        play: 'Play mode active'
+      };
+      document.getElementById('modeIndicator').textContent = label[mode];
+      document.getElementById('editPanel').classList.toggle('active', mode === 'edit');
+    }
 
-                                                            state.mediaRecorder.addEventListener('dataavailable', (e) => {
-                                                                                    state.recordedChunks.push(e.data);
-                                                            });
+    async function startRecording() {
+      try {
+        state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        state.mediaRecorder = new MediaRecorder(state.mediaStream);
+        state.recordedChunks = [];
+        state.mediaRecorder.addEventListener('dataavailable', (e) => state.recordedChunks.push(e.data));
+        state.mediaRecorder.start();
+        state.isRecording = true;
+        document.getElementById('recordBtn').classList.add('active');
+      } catch (err) {
+        console.error('Recording failed:', err);
+        alert('Microphone access is required to record.');
+      }
+    }
 
-                                                            state.mediaRecorder.start();
-                                                            state.isRecording = true;
-                                                            document.getElementById('recordBtn').classList.add('active');
-                                        } catch (err) {
-                                                            console.error('Recording failed:', err);
-                                                            alert('אין הרשאה למיקרופון');
-                                        }
-                        }
+    function stopRecording() {
+      if (!state.mediaRecorder || !state.isRecording) return;
+      state.mediaRecorder.stop();
+      state.mediaStream.getTracks().forEach((track) => track.stop());
+      state.isRecording = false;
+      document.getElementById('recordBtn').classList.remove('active');
+    }
 
-                        function stopRecording() {
-                                        if (state.mediaRecorder && state.isRecording) {
-                                                            state.mediaRecorder.stop();
-                                                            state.mediaStream.getTracks().forEach(track => track.stop());
-                                                            state.isRecording = false;
-                                                            document.getElementById('recordBtn').classList.remove('active');
-                                        }
-                        }
+    function addSample(position) {
+      if (state.samples.length >= 10) return;
+      const sample = {
+        id: state.samples.length,
+        position,
+        pitch: 0,
+        stretch: 1,
+        playspeed: 1,
+        phase: 0,
+        volume: 80,
+        color: colors[state.samples.length]
+      };
+      state.samples.push(sample);
+      renderMarkers();
+    }
 
-                        // Sample management
-                        function addSample(position) {
-                                        if (state.samples.length < 10) {
-                                                            const sample = {
-                                                                                    id: state.samples.length,
-                                                                                    position: position,
-                                                                                    pitch: 0,
-                                                                                    stretch: 1,
-                                                                                    playspeed: 1,
-                                                                                    phase: 0,
-                                                                                    volume: 80,
-                                                                                    color: colors[state.samples.length]
-                                                                };
-                                                            state.samples.push(sample);
-                                                            renderMarkers();
-                                        }
-                        }
+    function selectSample(id) {
+      state.selectedSample = id;
+      renderMarkers();
+      document.getElementById('editPanel').classList.add('active');
+      state.mode = 'edit';
+      document.querySelector('[data-mode="edit"]').classList.add('active');
+      document.querySelector('[data-mode="record"]').classList.remove('active');
+      document.querySelector('[data-mode="play"]').classList.remove('active');
+      document.getElementById('modeIndicator').textContent = 'Edit mode active';
+    }
 
-                        function selectSample(id) {
-                                        state.selectedSample = id;
-                                        renderMarkers();
-                                        document.getElementById('editPanel').classList.add('active');
-                        }
+    function renderMarkers() {
+      const canvas = document.getElementById('waveformCanvas');
+      const container = canvas.parentElement;
+      document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
 
-                        function renderMarkers() {
-                                        const canvas = document.getElementById('waveformCanvas');
-                                        const container = canvas.parentElement;
+      state.samples.forEach((sample) => {
+        const marker = document.createElement('div');
+        marker.className = `sample-marker ${sample.color}`;
+        marker.style.left = `${sample.position}%`;
+        marker.style.top = '50%';
+        if (state.selectedSample === sample.id) {
+          marker.style.boxShadow = '0 0 0 4px rgba(105, 161, 255, 0.26), 0 0 12px rgba(105, 161, 255, 0.85)';
+        }
+        marker.addEventListener('click', () => selectSample(sample.id));
+        container.appendChild(marker);
+      });
 
-                                        // Remove old markers
-                                        document.querySelectorAll('.sample-marker').forEach(m => m.remove());
+      const ctx = canvas.getContext('2d');
+      drawWaveform(ctx, canvas.width, canvas.height);
+    }
 
-                                        // Add new markers
-                                        state.samples.forEach((sample) => {
-                                                            const marker = document.createElement('div');
-                                                            marker.className = `sample-marker ${sample.color}`;
-                                                            marker.style.left = `${sample.position}%`;
-                                                            marker.style.top = '50%';
-                                                            if (state.selectedSample === sample.id) {
-                                                                                    marker.style.boxShadow = '0 0 12px rgba(74, 158, 255, 0.8)';
-                                                            }
-                                                            container.appendChild(marker);
-                                        });
-                        }
+    function clearSamples() {
+      state.samples = [];
+      state.selectedSample = null;
+      document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
+      const canvas = document.getElementById('waveformCanvas');
+      drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
+    }
 
-                        function clearSamples() {
-                                        state.samples = [];
-                                        state.selectedSample = null;
-                                        document.querySelectorAll('.sample-marker').forEach(m => m.remove());
-                        }
+    function playSequence() {
+      if (!state.samples.length) {
+        alert('No samples available for playback.');
+        return;
+      }
 
-                        // Playback
-                        function playSequence() {
-                                        if (state.samples.length === 0) {
-                                                            alert('אין דגימות להנגנה');
-                                                            return;
-                                        }
+      state.isPlaying = true;
+      document.getElementById('playBtn').classList.add('active');
 
-                                        state.isPlaying = true;
-                                        document.getElementById('playBtn').classList.add('active');
+      state.samples.forEach((sample, idx) => {
+        setTimeout(() => {
+          const marker = document.querySelectorAll('.sample-marker')[idx];
+          if (!marker) return;
+          marker.classList.add('playing');
+          setTimeout(() => marker.classList.remove('playing'), 110);
+        }, idx * 180);
+      });
 
-                                        // Simple playback visualization
-                                        state.samples.forEach((sample, idx) => {
-                                                            setTimeout(() => {
-                                                                                    const marker = document.querySelectorAll('.sample-marker')[idx];
-                                                                                    if (marker) {
-                                                                                                                marker.classList.add('playing');
-                                                                                                                setTimeout(() => marker.classList.remove('playing'), 100);
-                                                                                        }
-                                                            }, idx * 200);
-                                        });
+      setTimeout(() => {
+        state.isPlaying = false;
+        document.getElementById('playBtn').classList.remove('active');
+      }, state.samples.length * 180);
+    }
 
-                                        setTimeout(() => {
-                                                            state.isPlaying = false;
-                                                            document.getElementById('playBtn').classList.remove('active');
-                                        }, state.samples.length * 200);
-                        }
+    function saveSamples() {
+      localStorage.setItem('simpler_samples', JSON.stringify(state.samples));
+      alert('Samples saved.');
+    }
 
-                        // Storage
-                        function saveSamples() {
-                                        const data = JSON.stringify(state.samples);
-                                        localStorage.setItem('simpler_samples', data);
-                                        alert('הדגימות נשמרו בהצלחה');
-                        }
+    function loadSamples() {
+      const data = localStorage.getItem('simpler_samples');
+      if (!data) {
+        alert('No saved samples found.');
+        return;
+      }
+      state.samples = JSON.parse(data);
+      renderMarkers();
+      alert('Samples loaded.');
+    }
 
-                        function loadSamples() {
-                                        const data = localStorage.getItem('simpler_samples');
-                                        if (data) {
-                                                            state.samples = JSON.parse(data);
-                                                            renderMarkers();
-                                                            alert('הדגימות נטענו בהצלחה');
-                                        } else {
-                                                            alert('אין דגימות שמורות');
-                                        }
-                        }
+    function toggleTheme() {
+      state.isDarkMode = !state.isDarkMode;
+      document.body.classList.toggle('light-mode', !state.isDarkMode);
+    }
 
-                        // Theme
-                        function toggleTheme() {
-                                        state.isDarkMode = !state.isDarkMode;
-                                        document.body.classList.toggle('light-mode');
-                        }
+    function renderTranscript() {
+      const list = document.getElementById('transcriptList');
+      list.innerHTML = '';
 
-                        // Start app
-                        init();
-            </script>
-    </body>
-</html>html>
-            </script>
-                            </div></h1>
-    </body>
-        </style></title>
-    </head>
+      state.transcripts.forEach((item) => {
+        const row = document.createElement('article');
+        row.className = 'transcript-item';
+
+        const lang = document.createElement('span');
+        lang.className = 'transcript-lang';
+        lang.textContent = item.language;
+
+        const content = document.createElement('p');
+        content.className = 'transcript-content';
+        content.dir = 'auto';
+        content.appendChild(buildBidiFragment(item.text));
+
+        row.append(lang, content);
+        list.appendChild(row);
+      });
+    }
+
+    function buildBidiFragment(text) {
+      const fragment = document.createDocumentFragment();
+      const tokenPattern = /(\s+|[\u0590-\u08FF]+|[A-Za-z0-9]+|[^\sA-Za-z0-9\u0590-\u08FF]+)/g;
+      const tokens = text.match(tokenPattern) || [text];
+
+      tokens.forEach((token) => {
+        if (/^\s+$/.test(token)) {
+          fragment.appendChild(document.createTextNode(token));
+          return;
+        }
+
+        const span = document.createElement('span');
+        span.className = 'bidi-run';
+
+        if (/^[\u0590-\u08FF]+$/.test(token)) {
+          span.dir = 'rtl';
+        } else if (/^[A-Za-z0-9]+$/.test(token)) {
+          span.dir = 'ltr';
+        } else {
+          span.dir = 'auto';
+        }
+
+        span.textContent = token;
+        fragment.appendChild(span);
+      });
+
+      return fragment;
+    }
+
+    init();
+  </script>
+</body>
+</html>
