@@ -1,669 +1,1184 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
-    <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <title>Simpler - Intuitive Sequencer</title>
-        <style>
-                    :root {
-                                    --bg: #121212;
-                                    --surface: #1e1e1e;
-                                    --text: #e0e0e0;
-                                    --accent: #4a9eff;
-                    }
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simpler - Multilingual Transcription Sequencer</title>
+  <style>
+    :root {
+      --bg: #090b12;
+      --bg-soft: #111725;
+      --panel: rgba(14, 20, 34, 0.82);
+      --panel-border: rgba(163, 189, 255, 0.22);
+      --text: #edf2ff;
+      --text-soft: #a8b4cf;
+      --accent: #69a1ff;
+      --accent-strong: #8fbcff;
+      --danger: #ff7a7a;
+      --shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 9px;
+    }
 
-                    body.light-mode {
-                                    --bg: #f5f5f5;
-                                    --surface: #ffffff;
-                                    --text: #333;
-                    }
+    body.light-mode {
+      --bg: #eef2fa;
+      --bg-soft: #f7f9ff;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-border: rgba(122, 142, 190, 0.3);
+      --text: #1d2638;
+      --text-soft: #5f6f8e;
+      --accent: #356de8;
+      --accent-strong: #1950c8;
+      --danger: #cb4141;
+      --shadow: 0 20px 36px rgba(30, 58, 120, 0.12);
+    }
 
-                    * {
-                                    box-sizing: border-box;
-                    }
+    * { box-sizing: border-box; }
 
-                    body {
-                                    margin: 0;
-                                    padding: 0;
-                                    background: var(--bg);
-                                    color: var(--text);
-                                    font-family: 'Segoe UI', system-ui, sans-serif;
-                                    display: flex;
-                                    flex-direction: column;
-                                    height: 100vh;
-                                    overflow: hidden;
-                                    transition: background 0.3s;
-                    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(105, 161, 255, 0.18), transparent 44%),
+        radial-gradient(circle at 92% 100%, rgba(130, 235, 188, 0.12), transparent 36%),
+        linear-gradient(140deg, var(--bg), var(--bg-soft));
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
 
-                    /* Header */
-                    .header {
-                                    display: flex;
-                                    justify-content: space-between;
-                                    align-items: center;
-                                    padding: 12px 20px;
-                                    background: var(--surface);
-                                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-                                    z-index: 100;
-                    }
+    .app-shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100vh;
+      gap: 14px;
+      padding: 14px;
+    }
 
-                    .header h1 {
-                                    margin: 0;
-                                    font-size: 18px;
-                                    font-weight: 600;
-                    }
+    .header,
+    .bottom-panel,
+    .content,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
 
-                    .controls {
-                                    display: flex;
-                                    gap: 12px;
-                    }
+    .header {
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-                    .btn {
-                                    padding: 8px 16px;
-                                    background: var(--surface);
-                                    color: var(--text);
-                                    border: 1px solid rgba(255, 255, 255, 0.2);
-                                    border-radius: 6px;
-                                    cursor: pointer;
-                                    font-size: 13px;
-                                    transition: all 0.2s;
-                    }
+    .title-block h1 {
+      margin: 0;
+      font-size: clamp(1.05rem, 1.8vw, 1.45rem);
+    }
 
-                    .btn:hover {
-                                    background: var(--accent);
-                                    color: #fff;
-                                    border-color: var(--accent);
-                    }
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--text-soft);
+      font-size: 0.86rem;
+    }
 
-                    .btn.active {
-                                    background: var(--accent);
-                                    color: #fff;
-                    }
+    .controls,
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
 
-                    /* Main Content */
-                    .main-container {
-                                    display: flex;
-                                    flex: 1;
-                                    overflow: hidden;
-                    }
+    .btn {
+      border: 1px solid var(--panel-border);
+      background: color-mix(in srgb, var(--panel) 74%, transparent);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 0.87rem;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
 
-                    /* Waveform Area */
-                    .waveform-area {
-                                    flex: 1;
-                                    display: flex;
-                                    flex-direction: column;
-                                    background: var(--bg);
-                                    overflow: hidden;
-                    }
+    .btn:hover,
+    .btn:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+      transform: translateY(-1px);
+    }
 
-                    .canvas-container {
-                                    flex: 1;
-                                    position: relative;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    overflow: hidden;
-                    }
+    .btn.active {
+      background: linear-gradient(130deg, var(--accent), var(--accent-strong));
+      color: #fff;
+      border-color: transparent;
+    }
 
-                    canvas {
-                                    width: 100%;
-                                    height: 100%;
-                                    cursor: crosshair;
-                    }
+    .content {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: 14px;
+      min-height: 0;
+    }
 
-                    /* Sample Markers (Circles) - Much Smaller */
-                    .sample-marker {
-                                    position: absolute;
-                                    width: 14px;
-                                    height: 14px;
-                                    border-radius: 50%;
-                                    cursor: grab;
-                                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-                                    z-index: 10;
-                                    transition: transform 0.1s;
-                                    border: 1px solid rgba(255, 255, 255, 0.3);
-                    }
+    .waveform-area,
+    .sequencer-panel {
+      border-radius: var(--radius-md);
+      border: 1px solid var(--panel-border);
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      min-height: 0;
+    }
 
-                    .sample-marker:hover {
-                                    transform: scale(1.3);
-                                    z-index: 11;
-                    }
+    .waveform-area {
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+    }
 
-                    .sample-marker:active {
-                                    cursor: grabbing;
-                    }
+    .canvas-container {
+      position: relative;
+      min-height: 300px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--panel-border);
+      overflow: hidden;
+      background: rgba(8, 12, 22, 0.45);
+      flex: 1;
+    }
 
-                    /* Color palette for samples (pastel metallic) */
-                    .sample-marker.c1 { background: #FFB3BA; }
-                    .sample-marker.c2 { background: #FFCCCB; }
-                    .sample-marker.c3 { background: #FFE4B5; }
-                    .sample-marker.c4 { background: #E0FFCC; }
-                    .sample-marker.c5 { background: #CCE5FF; }
-                    .sample-marker.c6 { background: #E0CCFF; }
-                    .sample-marker.c7 { background: #FFCCF0; }
-                    .sample-marker.c8 { background: #C7FFDA; }
-                    .sample-marker.c9 { background: #FFF0CC; }
-                    .sample-marker.c10 { background: #D4EBFF; }
+    .syllable-overlay {
+      position: absolute;
+      inset: 8px 10px auto 10px;
+      height: 28px;
+      pointer-events: none;
+    }
 
-                    /* Bottom Controls Panel */
-                    .bottom-panel {
-                                    background: var(--surface);
-                                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                                    padding: 12px 20px;
-                                    display: flex;
-                                    gap: 20px;
-                                    align-items: center;
-                                    height: 80px;
-                                    overflow-x: auto;
-                    }
+    .syllable-chip {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: var(--text);
+      background: rgba(7, 12, 24, 0.66);
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
 
-                    .mode-indicator {
-                                    font-size: 12px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 1px;
-                                    color: var(--accent);
-                                    font-weight: 600;
-                    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
 
-                    .action-buttons {
-                                    display: flex;
-                                    gap: 8px;
-                    }
+    .sample-marker {
+      position: absolute;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08), 0 8px 20px rgba(0, 0, 0, 0.3);
+      cursor: grab;
+      transform: translateY(-50%);
+      top: 50%;
+      min-width: 20px;
+    }
 
-                    /* Sequencer Panel (Right Side) */
-                    .sequencer-panel {
-                                    width: 280px;
-                                    background: var(--surface);
-                                    border-left: 1px solid rgba(255, 255, 255, 0.1);
-                                    padding: 16px;
-                                    overflow-y: auto;
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 16px;
-                    }
+    .sample-marker.c1 { background: #f7a8a8; }
+    .sample-marker.c2 { background: #ffd3a8; }
+    .sample-marker.c3 { background: #ffe89f; }
+    .sample-marker.c4 { background: #cbf1ac; }
+    .sample-marker.c5 { background: #9de3d5; }
+    .sample-marker.c6 { background: #9fc3ff; }
+    .sample-marker.c7 { background: #bca4ff; }
+    .sample-marker.c8 { background: #edb2ff; }
+    .sample-marker.c9 { background: #ffbad9; }
+    .sample-marker.c10 { background: #c8d8e8; }
 
-                    .sequencer-panel h3 {
-                                    margin: 0;
-                                    font-size: 13px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 1px;
-                                    color: rgba(255, 255, 255, 0.5);
-                    }
+    .sample-marker.playing { animation: pulse 0.28s ease-in-out; }
 
-                    .sequencer-grid {
-                                    display: grid;
-                                    grid-template-columns: repeat(5, 1fr);
-                                    gap: 8px;
-                    }
+    .clip-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      cursor: ew-resize;
+    }
 
-                    .sequencer-circle {
-                                    aspect-ratio: 1;
-                                    border-radius: 50%;
-                                    cursor: pointer;
-                                    border: 2px solid rgba(255, 255, 255, 0.2);
-                                    transition: all 0.2s;
-                                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-                    }
+    .clip-handle.left { left: 0; border-radius: 8px 0 0 8px; }
+    .clip-handle.right { right: 0; border-radius: 0 8px 8px 0; }
 
-                    .sequencer-circle:hover {
-                                    border-color: rgba(255, 255, 255, 0.5);
-                                    transform: scale(1.05);
-                    }
+    .sequencer-panel {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 12px;
+      padding: 12px;
+      overflow: auto;
+    }
 
-                    .sequencer-circle.active {
-                                    border-color: #fff;
-                                    box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
-                    }
+    .panel-title {
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-soft);
+      font-size: 0.75rem;
+    }
 
-                    /* Edit Panel */
-                    .edit-panel {
-                                    display: none;
-                                    flex-direction: column;
-                                    gap: 12px;
-                                    padding-top: 12px;
-                                    border-top: 1px solid rgba(255, 255, 255, 0.1);
-                    }
+    .sequencer-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(36px, 1fr));
+      gap: 8px;
+    }
 
-                    .edit-panel.active {
-                                    display: flex;
-                    }
+    .sequencer-circle {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
 
-                    .param-control {
-                                    display: flex;
-                                    flex-direction: column;
-                                    gap: 6px;
-                    }
+    .sequencer-circle.active,
+    .sequencer-circle:hover {
+      border-color: #fff;
+      transform: scale(1.05);
+    }
 
-                    .param-label {
-                                    font-size: 11px;
-                                    text-transform: uppercase;
-                                    letter-spacing: 0.8px;
-                                    color: rgba(255, 255, 255, 0.6);
-                    }
+    .edit-panel { display: none; gap: 9px; }
+    .edit-panel.active { display: grid; }
 
-                    .control-knob {
-                                    width: 60px;
-                                    height: 60px;
-                                    border-radius: 50%;
-                                    border: 3px solid rgba(255, 255, 255, 0.3);
-                                    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.3));
-                                    cursor: pointer;
-                                    position: relative;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    font-size: 11px;
-                                    color: rgba(255, 255, 255, 0.8);
-                                    transition: all 0.2s;
-                    }
+    .param-label {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      letter-spacing: 0.07em;
+    }
 
-                    .control-knob:hover {
-                                    border-color: rgba(255, 255, 255, 0.6);
-                    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-                    .control-knob::after {
-                                    content: '';
-                                    position: absolute;
-                                    width: 2px;
-                                    height: 18px;
-                                    background: var(--accent);
-                                    top: 8px;
-                                    border-radius: 1px;
-                                    transform-origin: center 26px;
-                    }
+    .transcript-list {
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+      background: rgba(8, 11, 20, 0.28);
+    }
 
-                    .knob-row {
-                                    display: flex;
-                                    gap: 8px;
-                                    justify-content: space-around;
-                    }
+    .transcript-item {
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
 
-                    /* Responsive */
-                    @media (max-width: 768px) {
-                                    .main-container {
-                                                        flex-direction: column;
-                                    }
+    .transcript-lang {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.68rem;
+    }
 
-                                    .sequencer-panel {
-                                                        width: 100%;
-                                                        border-left: none;
-                                                        border-top: 1px solid rgba(255, 255, 255, 0.1);
-                                                        height: auto;
-                                                        max-height: 200px;
-                                    }
+    .transcript-content {
+      white-space: pre-wrap;
+      unicode-bidi: plaintext;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
 
-                                    .bottom-panel {
-                                                        height: auto;
-                                    }
+    .bidi-run {
+      unicode-bidi: isolate;
+      padding-inline: 1px;
+    }
 
-                                    .sequencer-grid {
-                                                        grid-template-columns: repeat(10, 1fr);
-                                    }
-                    }
+    .bottom-panel {
+      padding: 12px 16px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-                    /* Play mode - hide edit controls */
-                    .play-mode .edit-panel {
-                                    display: none !important;
-                    }
+    .mode-indicator { font-size: 0.84rem; color: var(--text-soft); }
 
-                    .play-mode .sequencer-grid {
-                                    max-height: 180px;
-                                    overflow-y: auto;
-                    }
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-                    /* Animation */
-                    @keyframes pulse {
-                                    0%, 100% { opacity: 1; }
-                                    50% { opacity: 0.7; }
-                    }
+    .level-meter {
+      width: min(180px, 45vw);
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--panel-border);
+      background: rgba(8, 11, 20, 0.4);
+    }
 
-                    .sample-marker.playing {
-                                    animation: pulse 0.3s ease-in-out;
-                    }
-                </style>
-    </head>
-    <body>
-            <div class="header">
-                        <h1>סימפלר</h1>
-                    <div class="controls">
-                                <button class="btn active" data-mode="record">🎙️ הקלטה</button>button>
-                                <button class="btn" data-mode="edit">✏️ עריכה</button>button>
-                                <button class="btn" data-mode="play">▶️ נגינה</button>button>
-                                <button class="btn" id="themeToggle">🌓 מצב</button>button>
-                    </div>div>
-            </div>div>
-    
-        <div class="main-container">
-                <div class="waveform-area">
-                            <div class="canvas-container">
-                                            <canvas id="waveformCanvas"></canvas>canvas>
-                            </div>div>
-                </div>div>
-        
-                <div class="sequencer-panel">
-                            <div>
-                                                <h3>סדרה</h3>h3>
-                                                <div class="sequencer-grid" id="sequencerGrid">
-                                                                        <!-- Circles generated by JS -->
-                                                </div>
-                            </div>
+    .level-meter-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #56d78f, #f7cb57, #ff6b6b);
+      transition: width 70ms linear;
+    }
 
-                                <div class="edit-panel" id="editPanel">
-                                                    <h3>עריכה</h3>h3>
+    .master-gain-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 220px;
+    }
 
-                                                    <div class="param-control">
-                                                                            <label class="param-label">מתיחה</label>label>
-                                                                            <input type="range" min="0.5" max="2" step="0.1" value="1" class="param-input" data-param="stretch">
-                                                    </div>
+    .master-gain-wrap label {
+      font-size: 0.76rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
 
-                                                    <div class="param-control">
-                                                                            <label class="param-label">דרג תדר (Pitch)</label>label>
-                                                                            <div class="knob-row">
-                                                                                                        <div class="control-knob" data-param="pitch" title="Pitch">0</div>
-                                                                                </div>
-                                                    </div>
+    @keyframes pulse {
+      0%, 100% { transform: translateY(-50%) scale(1); }
+      45% { transform: translateY(-50%) scale(1.04); }
+    }
 
-                                                    <div class="param-control">
-                                                                            <label class="param-label">מהירות</label>label>
-                                                                            <input type="range" min="0.25" max="2" step="0.1" value="1" class="param-input" data-param="playspeed">
-                                                    </div>
+    @media (max-width: 1000px) {
+      .content { grid-template-columns: 1fr; }
+      .canvas-container { min-height: 260px; }
+    }
 
-                                                    <div class="param-control">
-                                                                            <label class="param-label">פאזה</label>label>
-                                                                            <input type="range" min="0" max="360" step="1" value="0" class="param-input" data-param="phase">
-                                                    </div>
+    @media (max-width: 620px) {
+      .app-shell { padding: 10px; gap: 10px; }
+      .header, .content, .bottom-panel { border-radius: 14px; }
+      .btn { flex: 1 1 48%; text-align: center; }
+      .sequencer-grid { grid-template-columns: repeat(10, minmax(28px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header">
+      <div class="title-block">
+        <h1>Simpler</h1>
+        <p class="subtitle">Interface in English. Transcription can contain any language.</p>
+      </div>
+      <div class="controls">
+        <button class="btn active" data-mode="record">Record Mode</button>
+        <button class="btn" data-mode="edit">Edit Mode</button>
+        <button class="btn" data-mode="play">Play Mode</button>
+        <button class="btn" id="themeToggle">Theme</button>
+      </div>
+    </header>
 
-                                                    <div class="param-control">
-                                                                            <label class="param-label">עוצמה (Volume)</label>label>
-                                                                            <input type="range" min="0" max="100" step="1" value="80" class="param-input" data-param="volume">
-                                                    </div>
-
-                                                    <div class="action-buttons" style="margin-top: 12px; flex-wrap: wrap;">
-                                                                            <button class="btn" id="saveBtn">💾 שמור</button>button>
-                                                                            <button class="btn" id="loadBtn">📂 טען</button>button>
-                                                    </div>
-                                </div>
-                </div>
+    <main class="content">
+      <section class="waveform-area">
+        <h2 class="panel-title">Waveform Workspace</h2>
+        <div class="canvas-container">
+          <canvas id="waveformCanvas"></canvas>
+          <div class="syllable-overlay" id="syllableOverlay"></div>
         </div>
+      </section>
 
-            <div class="bottom-panel">
-                        <div class="mode-indicator" id="modeIndicator">מצב הקלטה</div>
-                        <div class="action-buttons">
-                                        <button class="btn" id="recordBtn">⏺️ התחל</button>button>
-                                        <button class="btn" id="stopBtn">⏹️ עצור</button>button>
-                                        <button class="btn" id="playBtn">▶️ נגן</button>button>
-                                        <button class="btn" id="clearBtn">🗑️ נקה</button>button>
-                        </div>
+      <aside class="sequencer-panel">
+        <section>
+          <h2 class="panel-title">Step Sequencer</h2>
+          <div class="sequencer-grid" id="sequencerGrid"></div>
+          <div class="action-buttons" style="margin-top: 10px;">
+            <button class="btn" id="autoClipBtn">Auto Create Clips</button>
+            <button class="btn" id="previewClipBtn">Preview Selected Clip</button>
+          </div>
+          <div class="param-control" style="margin-top: 10px;">
+            <label class="param-label" for="segmentMode">Segmentation</label>
+            <select id="segmentMode" class="btn" style="width: 100%;">
+              <option value="auto">Auto (short=word / long=sentence)</option>
+              <option value="word">Word by word</option>
+              <option value="sentence">Sentence by sentence</option>
+            </select>
+          </div>
+          <div class="param-control" style="margin-top: 10px;">
+            <label class="param-label" for="languageMode">Recognition language</label>
+            <select id="languageMode" class="btn" style="width: 100%;">
+              <option value="auto">Auto detect</option>
+              <option value="en-US">English</option>
+              <option value="he-IL">Hebrew</option>
+              <option value="ar-SA">Arabic</option>
+              <option value="ja-JP">Japanese</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="edit-panel" id="editPanel">
+          <h2 class="panel-title">Sample Edit</h2>
+          <label class="param-label" for="stretchRange">Stretch</label>
+          <input id="stretchRange" type="range" min="0.5" max="2" step="0.1" value="1" data-param="stretch">
+          <label class="param-label" for="pitchRange">Pitch</label>
+          <input id="pitchRange" type="range" min="-12" max="12" step="1" value="0" data-param="pitch">
+          <label class="param-label" for="speedRange">Playback Speed</label>
+          <input id="speedRange" type="range" min="0.25" max="2" step="0.1" value="1" data-param="playspeed">
+          <label class="param-label" for="phaseRange">Phase</label>
+          <input id="phaseRange" type="range" min="0" max="360" step="1" value="0" data-param="phase">
+          <label class="param-label" for="volumeRange">Volume</label>
+          <input id="volumeRange" type="range" min="0" max="100" step="1" value="80" data-param="volume">
+          <div class="action-buttons">
+            <button class="btn" id="saveBtn">Save</button>
+            <button class="btn" id="loadBtn">Load</button>
+          </div>
+        </section>
+
+        <section>
+          <h2 class="panel-title">Transcript (Auto language detection)</h2>
+          <div class="transcript-list">
+            <div class="transcript-item">
+              <span class="transcript-lang" id="detectedLanguage">Language: Unknown</span>
+              <p class="transcript-content" id="transcriptDisplay">No transcript yet.</p>
             </div>
+          </div>
+        </section>
+      </aside>
+    </main>
 
-            <script>
-                        // State
-                        const state = {
-                                        mode: 'record',
-                                        isDarkMode: true,
-                                        samples: [],
-                                        isRecording: false,
-                                        isPlaying: false,
-                                        selectedSample: null,
-                                        audioContext: null,
-                                        mediaStream: null,
-                                        mediaRecorder: null,
-                                        recordedChunks: []
-                        };
+    <footer class="bottom-panel">
+      <div class="status-strip">
+        <div class="mode-indicator" id="modeIndicator">Record mode active</div>
+        <div class="level-meter" aria-label="Input level meter">
+          <div class="level-meter-bar" id="levelMeterBar"></div>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="btn" id="recordBtn">Start Recording</button>
+        <button class="btn" id="stopBtn">Stop Recording</button>
+        <button class="btn" id="playBtn">Play</button>
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+      <div class="master-gain-wrap">
+        <label for="masterGainRange">Master Gain</label>
+        <input id="masterGainRange" type="range" min="0" max="200" step="1" value="100">
+      </div>
+    </footer>
+  </div>
 
-                        const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
+  <script>
+    const state = {
+      mode: 'record',
+      isDarkMode: true,
+      samples: [],
+      isRecording: false,
+      isPlaying: false,
+      selectedSample: null,
+      mediaStream: null,
+      mediaRecorder: null,
+      recordedChunks: [],
+      audioContext: null,
+      masterGain: null,
+      analyser: null,
+      meterFrame: null,
+      recognition: null,
+      liveTranscript: '',
+      transcriptText: '',
+      detectedLanguage: 'Unknown',
+      fullSampleUrl: null,
+      fullSampleDataUrl: '',
+      fullSampleBuffer: null
+    };
 
-                        // Initialize
-                        function init() {
-                                        setupCanvas();
-                                        setupEventListeners();
-                                        createSequencerCircles();
-                                        state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        }
+    const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
 
-                        // Canvas setup
-                        function setupCanvas() {
-                                        const canvas = document.getElementById('waveformCanvas');
-                                        const ctx = canvas.getContext('2d');
+    function init() {
+      setupAudioGraph();
+      setupCanvas();
+      setupEventListeners();
+      createSequencerCircles();
+      renderTranscript();
+    }
 
-                                        const container = canvas.parentElement;
-                                        canvas.width = container.clientWidth;
-                                        canvas.height = container.clientHeight;
+    function setupAudioGraph() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      state.audioContext = new AudioCtx();
+      state.masterGain = state.audioContext.createGain();
+      state.masterGain.gain.value = 1;
+      state.masterGain.connect(state.audioContext.destination);
+    }
 
-                                        // Draw placeholder waveform
-                                        drawWaveform(ctx, canvas.width, canvas.height);
+    function setupCanvas() {
+      const canvas = document.getElementById('waveformCanvas');
+      const ctx = canvas.getContext('2d');
+      const container = canvas.parentElement;
 
-                                        window.addEventListener('resize', () => {
-                                                            canvas.width = container.clientWidth;
-                                                            canvas.height = container.clientHeight;
-                                                            drawWaveform(ctx, canvas.width, canvas.height);
-                                        });
-                        }
+      const redraw = () => {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        drawWaveform(ctx, canvas.width, canvas.height);
+      };
 
-                        function drawWaveform(ctx, width, height) {
-                                        ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
-                                        ctx.fillRect(0, 0, width, height);
+      redraw();
+      window.addEventListener('resize', redraw);
+    }
 
-                                        // Draw center line
-                                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                                        ctx.lineWidth = 1;
-                                        ctx.beginPath();
-                                        ctx.moveTo(0, height / 2);
-                                        ctx.lineTo(width, height / 2);
-                                        ctx.stroke();
+    function drawWaveform(ctx, width, height) {
+      ctx.clearRect(0, 0, width, height);
 
-                                        // Draw sample waveforms
-                                        if (state.samples.length > 0) {
-                                                            state.samples.forEach((sample, idx) => {
-                                                                                    const x = (sample.position / 100) * width;
-                                                                                    const color = window.getComputedStyle(document.querySelector(`.sample-marker.${colors[idx % colors.length]}`))?.backgroundColor || '#FFB3BA';
+      const gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, 'rgba(93, 140, 255, 0.24)');
+      gradient.addColorStop(1, 'rgba(120, 226, 184, 0.12)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
 
-                                                                                    ctx.fillStyle = color;
-                                                                                    ctx.globalAlpha = 0.3;
-                                                                                    ctx.fillRect(x - 5, height / 2 - 20, 10, 40);
-                                                                                    ctx.globalAlpha = 1;
-                                                            });
-                                        }
-                        }
+      ctx.strokeStyle = 'rgba(237, 242, 255, 0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
 
-                        // Sequencer circles
-                        function createSequencerCircles() {
-                                        const grid = document.getElementById('sequencerGrid');
-                                        grid.innerHTML = '';
+      if (!state.fullSampleBuffer) return;
 
-                                        for (let i = 0; i < 10; i++) {
-                                                            const circle = document.createElement('div');
-                                                            circle.className = `sequencer-circle ${colors[i]}`;
-                                                            circle.dataset.sampleId = i;
-                                                            circle.addEventListener('click', () => selectSample(i));
-                                                            grid.appendChild(circle);
-                                        }
-                        }
+      const channel = state.fullSampleBuffer.getChannelData(0);
+      const step = Math.max(1, Math.floor(channel.length / width));
+      ctx.strokeStyle = 'rgba(143, 188, 255, 0.95)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
 
-                        // Event listeners
-                        function setupEventListeners() {
-                                        // Mode buttons
-                                        document.querySelectorAll('[data-mode]').forEach(btn => {
-                                                            btn.addEventListener('click', (e) => {
-                                                                                    document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
-                                                                                    e.target.classList.add('active');
-                                                                                    switchMode(e.target.dataset.mode);
-                                                            });
-                                        });
+      for (let x = 0; x < width; x += 1) {
+        let min = 1;
+        let max = -1;
+        const start = x * step;
+        const end = Math.min(channel.length, start + step);
+        for (let i = start; i < end; i += 1) {
+          const value = channel[i];
+          if (value < min) min = value;
+          if (value > max) max = value;
+        }
+        ctx.moveTo(x, (1 + min) * 0.5 * height);
+        ctx.lineTo(x, (1 + max) * 0.5 * height);
+      }
+      ctx.stroke();
+    }
 
-                                        // Control buttons
-                                        document.getElementById('recordBtn').addEventListener('click', startRecording);
-                                        document.getElementById('stopBtn').addEventListener('click', stopRecording);
-                                        document.getElementById('playBtn').addEventListener('click', playSequence);
-                                        document.getElementById('clearBtn').addEventListener('click', clearSamples);
-                                        document.getElementById('saveBtn').addEventListener('click', saveSamples);
-                                        document.getElementById('loadBtn').addEventListener('click', loadSamples);
-                                        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+    function createSequencerCircles() {
+      const grid = document.getElementById('sequencerGrid');
+      grid.innerHTML = '';
 
-                                        // Canvas interactions
-                                        document.getElementById('waveformCanvas').addEventListener('click', (e) => {
-                                                            if (state.mode === 'edit') {
-                                                                                    const rect = e.target.getBoundingClientRect();
-                                                                                    const x = e.clientX - rect.left;
-                                                                                    const position = (x / rect.width) * 100;
-                                                                                    addSample(position);
-                                                            }
-                                        });
-                        }
+      for (let i = 0; i < 10; i += 1) {
+        const circle = document.createElement('div');
+        circle.className = `sequencer-circle ${colors[i]}`;
+        circle.dataset.sampleId = i;
+        circle.addEventListener('click', () => selectSample(i));
+        grid.appendChild(circle);
+      }
+      updateSequencerPalette();
+    }
 
-                        // Mode switching
-                        function switchMode(mode) {
-                                        state.mode = mode;
-                                        const modeText = {
-                                                            record: 'מצב הקלטה',
-                                                            edit: 'מצב עריכה',
-                                                            play: 'מצב נגינה'
-                                        };
-                                        document.getElementById('modeIndicator').textContent = modeText[mode];
+    function updateSequencerPalette() {
+      document.querySelectorAll('.sequencer-circle').forEach((circle, idx) => {
+        circle.classList.toggle('active', idx < state.samples.length);
+      });
+    }
 
-                                        if (mode === 'edit') {
-                                                            document.getElementById('editPanel').classList.add('active');
-                                        } else {
-                                                            document.getElementById('editPanel').classList.remove('active');
-                                        }
-                        }
+    function setupEventListeners() {
+      document.querySelectorAll('[data-mode]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          document.querySelectorAll('[data-mode]').forEach((b) => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
+          switchMode(e.currentTarget.dataset.mode);
+        });
+      });
 
-                        // Recording
-                        async function startRecording() {
-                                        try {
-                                                            state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                                                            state.mediaRecorder = new MediaRecorder(state.mediaStream);
-                                                            state.recordedChunks = [];
+      document.getElementById('recordBtn').addEventListener('click', startRecording);
+      document.getElementById('stopBtn').addEventListener('click', stopRecording);
+      document.getElementById('playBtn').addEventListener('click', playSequence);
+      document.getElementById('clearBtn').addEventListener('click', clearSamples);
+      document.getElementById('saveBtn').addEventListener('click', saveSamples);
+      document.getElementById('loadBtn').addEventListener('click', loadSamples);
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      document.getElementById('autoClipBtn').addEventListener('click', autoCreateClips);
+      document.getElementById('previewClipBtn').addEventListener('click', previewSelectedClip);
+      document.getElementById('masterGainRange').addEventListener('input', (e) => {
+        setMasterGain(Number(e.target.value) / 100);
+      });
 
-                                                            state.mediaRecorder.addEventListener('dataavailable', (e) => {
-                                                                                    state.recordedChunks.push(e.data);
-                                                            });
+      document.getElementById('waveformCanvas').addEventListener('click', (e) => {
+        if (state.mode !== 'edit') return;
+        if (!state.fullSampleBuffer) return;
+        const rect = e.target.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const pct = x / rect.width;
+        const duration = state.fullSampleBuffer.duration;
+        const center = pct * duration;
+        const clipLength = Math.min(1.2, duration / 3);
+        const start = Math.max(0, center - clipLength / 2);
+        const end = Math.min(duration, start + clipLength);
+        addSample(start, end);
+      });
+    }
 
-                                                            state.mediaRecorder.start();
-                                                            state.isRecording = true;
-                                                            document.getElementById('recordBtn').classList.add('active');
-                                        } catch (err) {
-                                                            console.error('Recording failed:', err);
-                                                            alert('אין הרשאה למיקרופון');
-                                        }
-                        }
+    function switchMode(mode) {
+      state.mode = mode;
+      const label = {
+        record: 'Record mode active',
+        edit: 'Edit mode active',
+        play: 'Play mode active'
+      };
+      document.getElementById('modeIndicator').textContent = label[mode];
+      document.getElementById('editPanel').classList.toggle('active', mode === 'edit');
+    }
 
-                        function stopRecording() {
-                                        if (state.mediaRecorder && state.isRecording) {
-                                                            state.mediaRecorder.stop();
-                                                            state.mediaStream.getTracks().forEach(track => track.stop());
-                                                            state.isRecording = false;
-                                                            document.getElementById('recordBtn').classList.remove('active');
-                                        }
-                        }
+    async function startRecording() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+          alert('Recording is unavailable here. Open the app on HTTPS or localhost and allow microphone access.');
+          document.getElementById('modeIndicator').textContent = 'Recording unavailable in this browser context';
+          return;
+        }
 
-                        // Sample management
-                        function addSample(position) {
-                                        if (state.samples.length < 10) {
-                                                            const sample = {
-                                                                                    id: state.samples.length,
-                                                                                    position: position,
-                                                                                    pitch: 0,
-                                                                                    stretch: 1,
-                                                                                    playspeed: 1,
-                                                                                    phase: 0,
-                                                                                    volume: 80,
-                                                                                    color: colors[state.samples.length]
-                                                                };
-                                                            state.samples.push(sample);
-                                                            renderMarkers();
-                                        }
-                        }
+        if (state.audioContext?.state === 'suspended') {
+          await state.audioContext.resume();
+        }
 
-                        function selectSample(id) {
-                                        state.selectedSample = id;
-                                        renderMarkers();
-                                        document.getElementById('editPanel').classList.add('active');
-                        }
+        state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        state.mediaRecorder = new MediaRecorder(state.mediaStream);
+        state.recordedChunks = [];
+        state.liveTranscript = '';
+        setupInputMeter(state.mediaStream);
+        startSpeechRecognition();
+        state.mediaRecorder.addEventListener('dataavailable', (e) => state.recordedChunks.push(e.data));
+        state.mediaRecorder.addEventListener('start', () => {
+          document.getElementById('modeIndicator').textContent = 'Recording in progress';
+        });
+        state.mediaRecorder.addEventListener('stop', () => {
+          document.getElementById('modeIndicator').textContent = 'Recording stopped';
+          finalizeRecordingSample();
+        });
+        state.mediaRecorder.start();
+        state.isRecording = true;
+        document.getElementById('recordBtn').classList.add('active');
+      } catch (err) {
+        console.error('Recording failed:', err);
+        alert('Microphone access is required to record.');
+      }
+    }
 
-                        function renderMarkers() {
-                                        const canvas = document.getElementById('waveformCanvas');
-                                        const container = canvas.parentElement;
+    function stopRecording() {
+      if (!state.mediaRecorder || !state.isRecording) return;
+      state.mediaRecorder.stop();
+      state.mediaStream.getTracks().forEach((track) => track.stop());
+      state.isRecording = false;
+      stopSpeechRecognition();
+      stopInputMeter();
+      document.getElementById('recordBtn').classList.remove('active');
+      if (state.mode !== 'record') {
+        document.getElementById('modeIndicator').textContent = 'Recording stopped';
+      }
+    }
 
-                                        // Remove old markers
-                                        document.querySelectorAll('.sample-marker').forEach(m => m.remove());
+    function addSample(start, end) {
+      if (state.samples.length >= 10) return;
+      const sample = {
+        id: state.samples.length,
+        start,
+        end,
+        pitch: 0,
+        stretch: 1,
+        playspeed: 1,
+        phase: 0,
+        volume: 80,
+        color: colors[state.samples.length]
+      };
+      state.samples.push(sample);
+      renderMarkers();
+    }
 
-                                        // Add new markers
-                                        state.samples.forEach((sample) => {
-                                                            const marker = document.createElement('div');
-                                                            marker.className = `sample-marker ${sample.color}`;
-                                                            marker.style.left = `${sample.position}%`;
-                                                            marker.style.top = '50%';
-                                                            if (state.selectedSample === sample.id) {
-                                                                                    marker.style.boxShadow = '0 0 12px rgba(74, 158, 255, 0.8)';
-                                                            }
-                                                            container.appendChild(marker);
-                                        });
-                        }
+    function selectSample(id) {
+      if (!state.samples.some((sample) => sample.id === id)) return;
+      state.selectedSample = id;
+      renderMarkers();
+      document.getElementById('editPanel').classList.add('active');
+      state.mode = 'edit';
+      document.querySelector('[data-mode="edit"]').classList.add('active');
+      document.querySelector('[data-mode="record"]').classList.remove('active');
+      document.querySelector('[data-mode="play"]').classList.remove('active');
+      document.getElementById('modeIndicator').textContent = 'Edit mode active';
+    }
 
-                        function clearSamples() {
-                                        state.samples = [];
-                                        state.selectedSample = null;
-                                        document.querySelectorAll('.sample-marker').forEach(m => m.remove());
-                        }
+    function renderMarkers() {
+      const canvas = document.getElementById('waveformCanvas');
+      const container = canvas.parentElement;
+      document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
+      if (!state.fullSampleBuffer) return;
+      const duration = state.fullSampleBuffer.duration;
 
-                        // Playback
-                        function playSequence() {
-                                        if (state.samples.length === 0) {
-                                                            alert('אין דגימות להנגנה');
-                                                            return;
-                                        }
+      state.samples.forEach((sample) => {
+        const marker = document.createElement('div');
+        marker.className = `sample-marker ${sample.color}`;
+        const startPct = (sample.start / duration) * 100;
+        const endPct = (sample.end / duration) * 100;
+        marker.style.left = `${startPct}%`;
+        marker.style.width = `${Math.max(2, endPct - startPct)}%`;
+        if (state.selectedSample === sample.id) {
+          marker.style.boxShadow = '0 0 0 4px rgba(105, 161, 255, 0.26), 0 0 12px rgba(105, 161, 255, 0.85)';
+        }
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'clip-handle left';
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'clip-handle right';
+        marker.append(leftHandle, rightHandle);
+        makeClipDraggable(marker, sample);
+        makeHandleResizable(marker, sample, leftHandle, rightHandle);
+        marker.addEventListener('click', () => selectSample(sample.id));
+        container.appendChild(marker);
+      });
 
-                                        state.isPlaying = true;
-                                        document.getElementById('playBtn').classList.add('active');
+      updateSequencerPalette();
 
-                                        // Simple playback visualization
-                                        state.samples.forEach((sample, idx) => {
-                                                            setTimeout(() => {
-                                                                                    const marker = document.querySelectorAll('.sample-marker')[idx];
-                                                                                    if (marker) {
-                                                                                                                marker.classList.add('playing');
-                                                                                                                setTimeout(() => marker.classList.remove('playing'), 100);
-                                                                                        }
-                                                            }, idx * 200);
-                                        });
+      const ctx = canvas.getContext('2d');
+      drawWaveform(ctx, canvas.width, canvas.height);
+    }
 
-                                        setTimeout(() => {
-                                                            state.isPlaying = false;
-                                                            document.getElementById('playBtn').classList.remove('active');
-                                        }, state.samples.length * 200);
-                        }
+    function clearSamples() {
+      state.samples = [];
+      state.selectedSample = null;
+      state.transcriptText = '';
+      state.detectedLanguage = 'Unknown';
+      if (state.fullSampleUrl) {
+        URL.revokeObjectURL(state.fullSampleUrl);
+      }
+      state.fullSampleUrl = null;
+      state.fullSampleBuffer = null;
+      document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
+      document.getElementById('syllableOverlay').innerHTML = '';
+      renderTranscript();
+      updateSequencerPalette();
+      const canvas = document.getElementById('waveformCanvas');
+      drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
+    }
 
-                        // Storage
-                        function saveSamples() {
-                                        const data = JSON.stringify(state.samples);
-                                        localStorage.setItem('simpler_samples', data);
-                                        alert('הדגימות נשמרו בהצלחה');
-                        }
+    function makeClipDraggable(marker, sample) {
+      let dragging = false;
+      let startX = 0;
+      let originalStart = 0;
+      let originalEnd = 0;
 
-                        function loadSamples() {
-                                        const data = localStorage.getItem('simpler_samples');
-                                        if (data) {
-                                                            state.samples = JSON.parse(data);
-                                                            renderMarkers();
-                                                            alert('הדגימות נטענו בהצלחה');
-                                        } else {
-                                                            alert('אין דגימות שמורות');
-                                        }
-                        }
+      marker.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        startX = e.clientX;
+        originalStart = sample.start;
+        originalEnd = sample.end;
+        marker.setPointerCapture(e.pointerId);
+      });
 
-                        // Theme
-                        function toggleTheme() {
-                                        state.isDarkMode = !state.isDarkMode;
-                                        document.body.classList.toggle('light-mode');
-                        }
+      marker.addEventListener('pointermove', (e) => {
+        if (!dragging || !state.fullSampleBuffer) return;
+        const rect = marker.parentElement.getBoundingClientRect();
+        const deltaPct = (e.clientX - startX) / rect.width;
+        const deltaSec = deltaPct * state.fullSampleBuffer.duration;
+        const length = originalEnd - originalStart;
+        let newStart = originalStart + deltaSec;
+        newStart = Math.max(0, Math.min(state.fullSampleBuffer.duration - length, newStart));
+        sample.start = newStart;
+        sample.end = newStart + length;
+        renderMarkers();
+      });
 
-                        // Start app
-                        init();
-            </script>
-    </body>
-</html>html>
-            </script>
-                            </div></h1>
-    </body>
-        </style></title>
-    </head>
+      marker.addEventListener('pointerup', () => {
+        dragging = false;
+      });
+    }
+
+    function makeHandleResizable(marker, sample, leftHandle, rightHandle) {
+      const attachResize = (handle, direction) => {
+        let resizing = false;
+        let startX = 0;
+        let initialStart = 0;
+        let initialEnd = 0;
+
+        handle.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          resizing = true;
+          startX = e.clientX;
+          initialStart = sample.start;
+          initialEnd = sample.end;
+          handle.setPointerCapture(e.pointerId);
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+          if (!resizing || !state.fullSampleBuffer) return;
+          const rect = marker.parentElement.getBoundingClientRect();
+          const deltaSec = ((e.clientX - startX) / rect.width) * state.fullSampleBuffer.duration;
+          if (direction === 'left') {
+            sample.start = Math.max(0, Math.min(initialEnd - 0.05, initialStart + deltaSec));
+          } else {
+            sample.end = Math.min(state.fullSampleBuffer.duration, Math.max(initialStart + 0.05, initialEnd + deltaSec));
+          }
+          renderMarkers();
+        });
+
+        handle.addEventListener('pointerup', () => {
+          resizing = false;
+        });
+      };
+
+      attachResize(leftHandle, 'left');
+      attachResize(rightHandle, 'right');
+    }
+
+    function previewSelectedClip() {
+      if (state.selectedSample == null) return;
+      const clip = state.samples.find((s) => s.id === state.selectedSample);
+      if (!clip) return;
+      playClip(clip.start, clip.end);
+    }
+
+    function autoCreateClips() {
+      if (!state.fullSampleBuffer) return;
+      const duration = state.fullSampleBuffer.duration;
+      const requested = document.getElementById('segmentMode').value;
+      const mode = requested === 'auto' ? (duration <= 8 ? 'word' : 'sentence') : requested;
+
+      const sourceText = (state.transcriptText || '').trim();
+      const units = mode === 'sentence'
+        ? sourceText.split(/(?<=[.!?؟。])\s+/).filter(Boolean)
+        : sourceText.split(/\s+/).filter(Boolean);
+
+      if (!units.length) {
+        state.samples = [{ id: 0, start: 0, end: Math.min(duration, 1.2), color: colors[0], pitch: 0, stretch: 1, playspeed: 1, phase: 0, volume: 80 }];
+        renderMarkers();
+        return;
+      }
+
+      const count = Math.min(units.length, 10);
+      const slice = duration / count;
+      state.samples = [];
+      for (let i = 0; i < count; i += 1) {
+        const start = i * slice;
+        const end = Math.min(duration, start + Math.max(0.08, slice * 0.92));
+        state.samples.push({
+          id: i,
+          start,
+          end,
+          color: colors[i],
+          pitch: 0,
+          stretch: 1,
+          playspeed: 1,
+          phase: 0,
+          volume: 80
+        });
+      }
+      renderMarkers();
+    }
+
+    function playSequence() {
+      if (!state.fullSampleBuffer) {
+        alert('No recording available for playback.');
+        return;
+      }
+
+      if (state.audioContext?.state === 'suspended') {
+        state.audioContext.resume();
+      }
+
+      state.isPlaying = true;
+      document.getElementById('playBtn').classList.add('active');
+
+      if (!state.samples.length) {
+        playFullSample();
+        setTimeout(() => {
+          state.isPlaying = false;
+          document.getElementById('playBtn').classList.remove('active');
+        }, state.fullSampleBuffer.duration * 1000 + 120);
+        return;
+      }
+
+      const ordered = [...state.samples].sort((a, b) => a.start - b.start);
+      ordered.forEach((sample) => {
+        setTimeout(() => {
+          const marker = document.querySelectorAll('.sample-marker')[sample.id];
+          if (marker) {
+            marker.classList.add('playing');
+            setTimeout(() => marker.classList.remove('playing'), 110);
+          }
+          playClip(sample.start, sample.end);
+        }, sample.start * 1000);
+      });
+
+      setTimeout(() => {
+        state.isPlaying = false;
+        document.getElementById('playBtn').classList.remove('active');
+      }, state.fullSampleBuffer.duration * 1000 + 120);
+    }
+
+    function playClip(start, end) {
+      if (!state.audioContext || !state.masterGain) return;
+      const source = state.audioContext.createBufferSource();
+      const gainNode = state.audioContext.createGain();
+      source.buffer = state.fullSampleBuffer;
+      gainNode.gain.value = 1;
+      source.connect(gainNode);
+      gainNode.connect(state.masterGain);
+      source.start(0, start, Math.max(0.04, end - start));
+      source.onended = () => {
+        source.disconnect();
+        gainNode.disconnect();
+      };
+    }
+
+    function playFullSample() {
+      if (!state.fullSampleBuffer || !state.audioContext || !state.masterGain) return;
+      const source = state.audioContext.createBufferSource();
+      source.buffer = state.fullSampleBuffer;
+      source.connect(state.masterGain);
+      source.start();
+    }
+
+    function setMasterGain(value) {
+      if (!state.masterGain) return;
+      state.masterGain.gain.value = Math.max(0, Math.min(2, value));
+    }
+
+    function setupInputMeter(stream) {
+      if (!state.audioContext) return;
+      const source = state.audioContext.createMediaStreamSource(stream);
+      const analyser = state.audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      state.analyser = analyser;
+      updateInputMeter();
+    }
+
+    function updateInputMeter() {
+      if (!state.analyser) return;
+      const buffer = new Uint8Array(state.analyser.fftSize);
+      state.analyser.getByteTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i += 1) {
+        const normalized = (buffer[i] - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const rms = Math.sqrt(sum / buffer.length);
+      const percent = Math.min(100, Math.max(2, Math.round(rms * 240)));
+      document.getElementById('levelMeterBar').style.width = `${percent}%`;
+      state.meterFrame = requestAnimationFrame(updateInputMeter);
+    }
+
+    function stopInputMeter() {
+      if (state.meterFrame) {
+        cancelAnimationFrame(state.meterFrame);
+      }
+      state.meterFrame = null;
+      state.analyser = null;
+      document.getElementById('levelMeterBar').style.width = '0%';
+    }
+
+    function startSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      state.recognition = new SpeechRecognition();
+      state.recognition.continuous = true;
+      state.recognition.interimResults = true;
+      const selectedLanguage = document.getElementById('languageMode').value;
+      if (selectedLanguage !== 'auto') {
+        state.recognition.lang = selectedLanguage;
+      }
+
+      state.recognition.onresult = (event) => {
+        let text = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          text += event.results[i][0].transcript;
+        }
+        state.liveTranscript = sanitizeTranscript(text.trim());
+      };
+
+      state.recognition.start();
+    }
+
+    function stopSpeechRecognition() {
+      if (!state.recognition) return;
+      state.recognition.stop();
+      state.recognition = null;
+    }
+
+    async function finalizeRecordingSample() {
+      if (!state.recordedChunks.length) return;
+      const blob = new Blob(state.recordedChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      if (state.fullSampleUrl) {
+        URL.revokeObjectURL(state.fullSampleUrl);
+      }
+      state.fullSampleUrl = url;
+      state.fullSampleDataUrl = await blobToDataUrl(blob);
+      state.fullSampleBuffer = await state.audioContext.decodeAudioData(await blob.arrayBuffer());
+      state.samples = [];
+
+      const transcript = sanitizeTranscript(state.liveTranscript || 'No speech detected.');
+      state.transcriptText = transcript;
+      const selectedLanguage = document.getElementById('languageMode').value;
+      state.detectedLanguage = selectedLanguage === 'auto' ? detectLanguageLabel(transcript) : displayLanguageName(selectedLanguage);
+      renderTranscript();
+      renderSyllableOverlay(transcript);
+      autoCreateClips();
+      const canvas = document.getElementById('waveformCanvas');
+      drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
+      state.recordedChunks = [];
+      state.liveTranscript = '';
+    }
+
+    function saveSamples() {
+      const payload = {
+        clips: state.samples,
+        transcriptText: state.transcriptText,
+        detectedLanguage: state.detectedLanguage,
+        fullSampleDataUrl: state.fullSampleDataUrl
+      };
+      localStorage.setItem('simpler_samples', JSON.stringify(payload));
+      alert('Recording and clip set saved.');
+    }
+
+    async function loadSamples() {
+      const data = localStorage.getItem('simpler_samples');
+      if (!data) {
+        alert('No saved samples found.');
+        return;
+      }
+      const parsed = JSON.parse(data);
+      state.samples = parsed.clips || [];
+      state.transcriptText = parsed.transcriptText || '';
+      state.detectedLanguage = parsed.detectedLanguage || 'Unknown';
+      state.fullSampleDataUrl = parsed.fullSampleDataUrl || '';
+      if (state.fullSampleDataUrl && state.audioContext) {
+        const response = await fetch(state.fullSampleDataUrl);
+        const blob = await response.blob();
+        if (state.fullSampleUrl) URL.revokeObjectURL(state.fullSampleUrl);
+        state.fullSampleUrl = URL.createObjectURL(blob);
+        state.fullSampleBuffer = await state.audioContext.decodeAudioData(await blob.arrayBuffer());
+      }
+      renderMarkers();
+      renderTranscript();
+      renderSyllableOverlay(state.transcriptText);
+      alert('Samples loaded.');
+    }
+
+    function toggleTheme() {
+      state.isDarkMode = !state.isDarkMode;
+      document.body.classList.toggle('light-mode', !state.isDarkMode);
+    }
+
+    function renderTranscript() {
+      const langLabel = document.getElementById('detectedLanguage');
+      const transcriptNode = document.getElementById('transcriptDisplay');
+      langLabel.textContent = `Language: ${state.detectedLanguage}`;
+      transcriptNode.innerHTML = '';
+      transcriptNode.dir = 'auto';
+      transcriptNode.appendChild(buildBidiFragment(state.transcriptText || 'No transcript yet.'));
+    }
+
+    function sanitizeTranscript(text) {
+      const blocked = ['dick', 'd!ck'];
+      let cleaned = text;
+      blocked.forEach((term) => {
+        const pattern = new RegExp(term.replace('!', '[!i]'), 'gi');
+        cleaned = cleaned.replace(pattern, '****');
+      });
+      return cleaned;
+    }
+
+    function detectLanguageLabel(text) {
+      if (/[\u0600-\u06FF]/.test(text)) return 'Arabic';
+      if (/[\u0590-\u05FF]/.test(text)) return 'Hebrew';
+      if (/[\u3040-\u30FF]/.test(text)) return 'Japanese';
+      if (/[\u4E00-\u9FFF]/.test(text)) return 'Chinese';
+      return 'English / Latin';
+    }
+
+    function displayLanguageName(code) {
+      const labels = {
+        'en-US': 'English',
+        'he-IL': 'Hebrew',
+        'ar-SA': 'Arabic',
+        'ja-JP': 'Japanese'
+      };
+      return labels[code] || code;
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function renderSyllableOverlay(text) {
+      const overlay = document.getElementById('syllableOverlay');
+      overlay.innerHTML = '';
+      if (!state.fullSampleBuffer) return;
+      const syllables = splitIntoSyllables(text).slice(0, 24);
+      syllables.forEach((syllable, index) => {
+        const chip = document.createElement('span');
+        chip.className = 'syllable-chip';
+        const position = ((index + 1) / (syllables.length + 1)) * 100;
+        chip.style.left = `${position}%`;
+        chip.textContent = syllable;
+        overlay.appendChild(chip);
+      });
+    }
+
+    function splitIntoSyllables(text) {
+      const words = text.split(/\s+/).filter(Boolean);
+      const result = [];
+      words.forEach((word) => {
+        if (/^[A-Za-z]+$/.test(word)) {
+          const parts = word.match(/[^aeiouy]*[aeiouy]+(?:[^aeiouy]|$)/gi) || [word];
+          result.push(...parts.map((p) => p.toLowerCase()));
+        } else {
+          const chars = word.match(/.{1,2}/g) || [word];
+          result.push(...chars);
+        }
+      });
+      return result;
+    }
+
+    function buildBidiFragment(text) {
+      const fragment = document.createDocumentFragment();
+      const tokenPattern = /(\s+|[\u0590-\u08FF]+|[A-Za-z0-9]+|[^\sA-Za-z0-9\u0590-\u08FF]+)/g;
+      const tokens = text.match(tokenPattern) || [text];
+
+      tokens.forEach((token) => {
+        if (/^\s+$/.test(token)) {
+          fragment.appendChild(document.createTextNode(token));
+          return;
+        }
+
+        const span = document.createElement('span');
+        span.className = 'bidi-run';
+
+        if (/^[\u0590-\u08FF]+$/.test(token)) {
+          span.dir = 'rtl';
+        } else if (/^[A-Za-z0-9]+$/.test(token)) {
+          span.dir = 'ltr';
+        } else {
+          span.dir = 'auto';
+        }
+
+        span.textContent = token;
+        fragment.appendChild(span);
+      });
+
+      return fragment;
+    }
+
+    init();
+  </script>
+</body>
+</html>
