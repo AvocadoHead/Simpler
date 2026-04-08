@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simpler - Intuitive Sequencer</title>
+    <style>
+        :root {
+            --bg: #121212; --surface: #1e1e1e; --text: #e0e0e0;
+            --p1: #b2cedd; --p2: #d9b2dd; --p3: #ddddb2; --p4: #b2ddba; --p5: #f4cfdf;
+        }
+        body.light-mode {
+            --bg: #f5f5f5; --surface: #ffffff; --text: #333;
+        }
+        body {
+            margin: 0; background: var(--bg); color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            transition: background 0.3s;
+        }
+
+        /* Waveform Area */
+        #viewport {
+            flex: 1; position: relative; background: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+        }
+        canvas { width: 100%; height: 250px; cursor: crosshair; }
+
+        /* Floating Markers (Circles) */
+        .marker {
+            position: absolute; width: 24px; height: 24px; border-radius: 50%;
+            transform: translate(-50%, -50%); cursor: grab;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3); z-index: 10;
+        }
+
+        /* Sequencer Panel */
+        #sequencer-panel {
+            background: var(--surface); padding: 20px;
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .pad {
+            aspect-ratio: 1; border-radius: 50%; border: none;
+            cursor: pointer; position: relative; transition: transform 0.1s;
+        }
+        .pad:active { transform: scale(0.9); }
+
+        /* Edit Overlay (Dials) */
+        #edit-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); display: none;
+            flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+        }
+        .dial-container { display: flex; gap: 30px; margin-bottom: 40px; }
+        .dial {
+            width: 70px; height: 70px; border: 4px solid var(--text);
+            border-radius: 50%; position: relative; display: flex;
+            align-items: center; justify-content: center; cursor: ns-resize;
+        }
+        .dial::after {
+            content: ''; position: absolute; top: 10px; width: 4px; height: 20px;
+            background: var(--text); transform-origin: bottom;
+        }
+
+        /* Interface Controls */
+        .top-bar {
+            padding: 15px; display: flex; justify-content: space-between;
+            position: absolute; top: 0; width: 100%; z-index: 50;
+        }
+        .btn-circle {
+            width: 45px; height: 45px; border-radius: 50%; border: none;
+            background: var(--surface); color: var(--text); cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); font-size: 1.2rem;
+        }
+        .rec-active { background: #ff4b4b; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <button class="btn-circle" onclick="toggleTheme()">🌓</button>
+        <button id="recBtn" class="btn-circle" onclick="toggleRecord()">🎤</button>
+        <button class="btn-circle" onclick="saveData()">💾</button>
+    </div>
+
+    <div id="viewport">
+        <canvas id="waveCanvas"></canvas>
+        <div id="markers-container"></div>
+    </div>
+
+    <div id="sequencer-panel">
+        <button class="pad" style="background: var(--p1)" oncontextmenu="openEdit(0); return false;" onclick="triggerPad(0)"></button>
+        <button class="pad" style="background: var(--p2)" oncontextmenu="openEdit(1); return false;" onclick="triggerPad(1)"></button>
+        <button class="pad" style="background: var(--p3)" oncontextmenu="openEdit(2); return false;" onclick="triggerPad(2)"></button>
+        <button class="pad" style="background: var(--p4)" oncontextmenu="openEdit(3); return false;" onclick="triggerPad(3)"></button>
+        <button class="pad" style="background: var(--p5)" oncontextmenu="openEdit(4); return false;" onclick="triggerPad(4)"></button>
+    </div>
+
+    <div id="edit-overlay" onclick="closeEdit()">
+        <div class="dial-container" onclick="event.stopPropagation()">
+            <div class="dial" title="Pitch"></div>
+            <div class="dial" title="Speed"></div>
+            <div class="dial" title="Phase"></div>
+            <div class="dial" title="Volume"></div>
+        </div>
+        <p>שנה פרמטרים בגרירה מעלה/מטה</p>
+    </div>
+
+    <script>
+        let audioCtx, recorder, chunks = [], audioBuffer;
+        let samples = []; // Holds data for each pad
+        const colors = ['#b2cedd', '#d9b2dd', '#ddddb2', '#b2ddba', '#f4cfdf'];
+
+        // Init App
+        function toggleTheme() { document.body.classList.toggle('light-mode'); }
+
+        async function toggleRecord() {
+            const btn = document.getElementById('recBtn');
+            if (!recorder || recorder.state === 'inactive') {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recorder = new MediaRecorder(stream);
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = processAudio;
+                recorder.start();
+                btn.classList.add('rec-active');
+            } else {
+                recorder.stop();
+                btn.classList.remove('rec-active');
+            }
+        }
+
+        async function processAudio() {
+            const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+            const arrayBuffer = await blob.arrayBuffer();
+            audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            drawWaveform(audioBuffer);
+            autoSlice(audioBuffer);
+            chunks = [];
+        }
+
+        function drawWaveform(buffer) {
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+            const data = buffer.getChannelData(0);
+            const step = Math.ceil(data.length / canvas.width);
+            const amp = canvas.height / 2;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.strokeStyle = '#888';
+            for(let i=0; i<canvas.width; i++) {
+                let min = 1.0, max = -1.0;
+                for(let j=0; j<step; j++) {
+                    const datum = data[(i*step)+j];
+                    if(datum < min) min = datum;
+                    if(datum > max) max = datum;
+                }
+                ctx.moveTo(i, (1+min)*amp);
+                ctx.lineTo(i, (1+max)*amp);
+            }
+            ctx.stroke();
+        }
+
+        function autoSlice(buffer) {
+            const container = document.getElementById('markers-container');
+            container.innerHTML = '';
+            // Simple transient detection placeholder - creating 5 slices
+            for(let i=0; i<5; i++) {
+                const marker = document.createElement('div');
+                marker.className = 'marker';
+                marker.style.background = colors[i];
+                marker.style.left = (20 * (i+1)) + '%';
+                marker.style.top = '50%';
+                marker.draggable = true;
+                container.appendChild(marker);
+                
+                samples[i] = {
+                    start: 0.2 * i,
+                    duration: 0.5,
+                    pitch: 1,
+                    speed: 1,
+                    vol: 0.8
+                };
+            }
+        }
+
+        function triggerPad(id) {
+            if(!audioBuffer) return;
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = audioBuffer;
+            source.playbackRate.value = samples[id].speed;
+            gainNode.gain.value = samples[id].vol;
+            
+            source.connect(gainNode).connect(audioCtx.destination);
+            source.start(0, samples[id].start * audioBuffer.duration, samples[id].duration);
+        }
+
+        function openEdit(id) {
+            document.getElementById('edit-overlay').style.display = 'flex';
+        }
+
+        function closeEdit() {
+            document.getElementById('edit-overlay').style.display = 'none';
+        }
+
+        function saveData() {
+            const data = JSON.stringify(samples);
+            localStorage.setItem('simpler_session', data);
+            alert('היצירה נשמרה בזיכרון הדפדפן!');
+        }
+
+        // Load-in Logic
+        window.onload = () => {
+            const saved = localStorage.getItem('simpler_session');
+            if(saved) {
+                samples = JSON.parse(saved);
+                console.log("Loaded samples:", samples);
+            }
+        };
+    </script>
+</body>
+</html>
