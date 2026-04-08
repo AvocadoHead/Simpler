@@ -279,6 +279,44 @@
 
     .mode-indicator { font-size: 0.84rem; color: var(--text-soft); }
 
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .level-meter {
+      width: min(180px, 45vw);
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--panel-border);
+      background: rgba(8, 11, 20, 0.4);
+    }
+
+    .level-meter-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #56d78f, #f7cb57, #ff6b6b);
+      transition: width 70ms linear;
+    }
+
+    .master-gain-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 220px;
+    }
+
+    .master-gain-wrap label {
+      font-size: 0.76rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+
     @keyframes pulse {
       0%, 100% { transform: translate(-50%, -50%) scale(1); }
       45% { transform: translate(-50%, -50%) scale(1.25); }
@@ -352,12 +390,21 @@
     </main>
 
     <footer class="bottom-panel">
-      <div class="mode-indicator" id="modeIndicator">Record mode active</div>
+      <div class="status-strip">
+        <div class="mode-indicator" id="modeIndicator">Record mode active</div>
+        <div class="level-meter" aria-label="Input level meter">
+          <div class="level-meter-bar" id="levelMeterBar"></div>
+        </div>
+      </div>
       <div class="action-buttons">
         <button class="btn" id="recordBtn">Start Recording</button>
         <button class="btn" id="stopBtn">Stop Recording</button>
         <button class="btn" id="playBtn">Play</button>
         <button class="btn" id="clearBtn">Clear</button>
+      </div>
+      <div class="master-gain-wrap">
+        <label for="masterGainRange">Master Gain</label>
+        <input id="masterGainRange" type="range" min="0" max="200" step="1" value="100">
       </div>
     </footer>
   </div>
@@ -373,6 +420,12 @@
       mediaStream: null,
       mediaRecorder: null,
       recordedChunks: [],
+      audioContext: null,
+      masterGain: null,
+      analyser: null,
+      meterFrame: null,
+      recognition: null,
+      liveTranscript: '',
       transcripts: [
         { language: 'English', text: 'Welcome to Simpler. This preview demonstrates robust multilingual text flow.' },
         { language: 'Arabic', text: 'مرحبا بكم في Simpler حيث تمتزج الجمل العربية مع English words بشكل متوازن.' },
@@ -384,10 +437,20 @@
     const colors = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8', 'c9', 'c10'];
 
     function init() {
+      setupAudioGraph();
       setupCanvas();
       setupEventListeners();
       createSequencerCircles();
       renderTranscript();
+    }
+
+    function setupAudioGraph() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      state.audioContext = new AudioCtx();
+      state.masterGain = state.audioContext.createGain();
+      state.masterGain.gain.value = 1;
+      state.masterGain.connect(state.audioContext.destination);
     }
 
     function setupCanvas() {
@@ -459,6 +522,9 @@
       document.getElementById('saveBtn').addEventListener('click', saveSamples);
       document.getElementById('loadBtn').addEventListener('click', loadSamples);
       document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      document.getElementById('masterGainRange').addEventListener('input', (e) => {
+        setMasterGain(Number(e.target.value) / 100);
+      });
 
       document.getElementById('waveformCanvas').addEventListener('click', (e) => {
         if (state.mode !== 'edit') return;
@@ -487,15 +553,23 @@
           return;
         }
 
+        if (state.audioContext?.state === 'suspended') {
+          await state.audioContext.resume();
+        }
+
         state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         state.mediaRecorder = new MediaRecorder(state.mediaStream);
         state.recordedChunks = [];
+        state.liveTranscript = '';
+        setupInputMeter(state.mediaStream);
+        startSpeechRecognition();
         state.mediaRecorder.addEventListener('dataavailable', (e) => state.recordedChunks.push(e.data));
         state.mediaRecorder.addEventListener('start', () => {
           document.getElementById('modeIndicator').textContent = 'Recording in progress';
         });
         state.mediaRecorder.addEventListener('stop', () => {
           document.getElementById('modeIndicator').textContent = 'Recording stopped';
+          finalizeRecordingSample();
         });
         state.mediaRecorder.start();
         state.isRecording = true;
@@ -511,13 +585,15 @@
       state.mediaRecorder.stop();
       state.mediaStream.getTracks().forEach((track) => track.stop());
       state.isRecording = false;
+      stopSpeechRecognition();
+      stopInputMeter();
       document.getElementById('recordBtn').classList.remove('active');
       if (state.mode !== 'record') {
         document.getElementById('modeIndicator').textContent = 'Recording stopped';
       }
     }
 
-    function addSample(position) {
+    function addSample(position, audioUrl = null, transcript = '') {
       if (state.samples.length >= 10) return;
       const sample = {
         id: state.samples.length,
@@ -527,7 +603,9 @@
         playspeed: 1,
         phase: 0,
         volume: 80,
-        color: colors[state.samples.length]
+        color: colors[state.samples.length],
+        audioUrl,
+        transcript
       };
       state.samples.push(sample);
       renderMarkers();
@@ -566,6 +644,11 @@
     }
 
     function clearSamples() {
+      state.samples.forEach((sample) => {
+        if (sample.audioUrl) {
+          URL.revokeObjectURL(sample.audioUrl);
+        }
+      });
       state.samples = [];
       state.selectedSample = null;
       document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
@@ -582,19 +665,119 @@
       state.isPlaying = true;
       document.getElementById('playBtn').classList.add('active');
 
-      state.samples.forEach((sample, idx) => {
+      const ordered = [...state.samples].sort((a, b) => a.position - b.position);
+      const timelineMs = 4000;
+
+      ordered.forEach((sample, idx) => {
+        const delay = Math.round((sample.position / 100) * timelineMs);
         setTimeout(() => {
-          const marker = document.querySelectorAll('.sample-marker')[idx];
+          const marker = document.querySelectorAll('.sample-marker')[sample.id];
           if (!marker) return;
           marker.classList.add('playing');
           setTimeout(() => marker.classList.remove('playing'), 110);
-        }, idx * 180);
+          if (sample.audioUrl) {
+            playSampleAudio(sample);
+          }
+        }, delay);
       });
 
       setTimeout(() => {
         state.isPlaying = false;
         document.getElementById('playBtn').classList.remove('active');
-      }, state.samples.length * 180);
+      }, timelineMs + 250);
+    }
+
+    function playSampleAudio(sample) {
+      if (!state.audioContext || !state.masterGain) return;
+      const audio = new Audio(sample.audioUrl);
+      const source = state.audioContext.createMediaElementSource(audio);
+      const gainNode = state.audioContext.createGain();
+      gainNode.gain.value = sample.volume / 100;
+      source.connect(gainNode);
+      gainNode.connect(state.masterGain);
+      audio.play().catch((err) => console.warn('Playback failed:', err));
+      audio.addEventListener('ended', () => {
+        source.disconnect();
+        gainNode.disconnect();
+      }, { once: true });
+    }
+
+    function setMasterGain(value) {
+      if (!state.masterGain) return;
+      state.masterGain.gain.value = Math.max(0, Math.min(2, value));
+    }
+
+    function setupInputMeter(stream) {
+      if (!state.audioContext) return;
+      const source = state.audioContext.createMediaStreamSource(stream);
+      const analyser = state.audioContext.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser);
+      state.analyser = analyser;
+      updateInputMeter();
+    }
+
+    function updateInputMeter() {
+      if (!state.analyser) return;
+      const buffer = new Uint8Array(state.analyser.fftSize);
+      state.analyser.getByteTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i += 1) {
+        const normalized = (buffer[i] - 128) / 128;
+        sum += normalized * normalized;
+      }
+      const rms = Math.sqrt(sum / buffer.length);
+      const percent = Math.min(100, Math.max(2, Math.round(rms * 240)));
+      document.getElementById('levelMeterBar').style.width = `${percent}%`;
+      state.meterFrame = requestAnimationFrame(updateInputMeter);
+    }
+
+    function stopInputMeter() {
+      if (state.meterFrame) {
+        cancelAnimationFrame(state.meterFrame);
+      }
+      state.meterFrame = null;
+      state.analyser = null;
+      document.getElementById('levelMeterBar').style.width = '0%';
+    }
+
+    function startSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      state.recognition = new SpeechRecognition();
+      state.recognition.continuous = true;
+      state.recognition.interimResults = true;
+
+      state.recognition.onresult = (event) => {
+        let text = '';
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          text += event.results[i][0].transcript;
+        }
+        state.liveTranscript = text.trim();
+      };
+
+      state.recognition.start();
+    }
+
+    function stopSpeechRecognition() {
+      if (!state.recognition) return;
+      state.recognition.stop();
+      state.recognition = null;
+    }
+
+    function finalizeRecordingSample() {
+      if (!state.recordedChunks.length) return;
+      const blob = new Blob(state.recordedChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const position = state.samples.length ? (state.samples[state.samples.length - 1].position + 10) % 100 : 10;
+      const transcript = state.liveTranscript || 'No speech detected.';
+
+      addSample(position, url, transcript);
+      state.transcripts.unshift({ language: 'Auto', text: transcript });
+      state.transcripts = state.transcripts.slice(0, 8);
+      renderTranscript();
+      state.recordedChunks = [];
+      state.liveTranscript = '';
     }
 
     function saveSamples() {
