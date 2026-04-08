@@ -203,6 +203,18 @@
 
     .sample-marker.playing { animation: pulse 0.28s ease-in-out; }
 
+    .clip-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.7);
+      cursor: ew-resize;
+    }
+
+    .clip-handle.left { left: 0; border-radius: 8px 0 0 8px; }
+    .clip-handle.right { right: 0; border-radius: 0 8px 8px 0; }
+
     .sequencer-panel {
       display: grid;
       grid-template-rows: auto auto 1fr;
@@ -339,8 +351,8 @@
     }
 
     @keyframes pulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); }
-      45% { transform: translate(-50%, -50%) scale(1.25); }
+      0%, 100% { transform: translateY(-50%) scale(1); }
+      45% { transform: translateY(-50%) scale(1.04); }
     }
 
     @media (max-width: 1000px) {
@@ -384,6 +396,28 @@
         <section>
           <h2 class="panel-title">Step Sequencer</h2>
           <div class="sequencer-grid" id="sequencerGrid"></div>
+          <div class="action-buttons" style="margin-top: 10px;">
+            <button class="btn" id="autoClipBtn">Auto Create Clips</button>
+            <button class="btn" id="previewClipBtn">Preview Selected Clip</button>
+          </div>
+          <div class="param-control" style="margin-top: 10px;">
+            <label class="param-label" for="segmentMode">Segmentation</label>
+            <select id="segmentMode" class="btn" style="width: 100%;">
+              <option value="auto">Auto (short=word / long=sentence)</option>
+              <option value="word">Word by word</option>
+              <option value="sentence">Sentence by sentence</option>
+            </select>
+          </div>
+          <div class="param-control" style="margin-top: 10px;">
+            <label class="param-label" for="languageMode">Recognition language</label>
+            <select id="languageMode" class="btn" style="width: 100%;">
+              <option value="auto">Auto detect</option>
+              <option value="en-US">English</option>
+              <option value="he-IL">Hebrew</option>
+              <option value="ar-SA">Arabic</option>
+              <option value="ja-JP">Japanese</option>
+            </select>
+          </div>
         </section>
 
         <section class="edit-panel" id="editPanel">
@@ -456,6 +490,7 @@
       transcriptText: '',
       detectedLanguage: 'Unknown',
       fullSampleUrl: null,
+      fullSampleDataUrl: '',
       fullSampleBuffer: null
     };
 
@@ -544,6 +579,13 @@
         circle.addEventListener('click', () => selectSample(i));
         grid.appendChild(circle);
       }
+      updateSequencerPalette();
+    }
+
+    function updateSequencerPalette() {
+      document.querySelectorAll('.sequencer-circle').forEach((circle, idx) => {
+        circle.classList.toggle('active', idx < state.samples.length);
+      });
     }
 
     function setupEventListeners() {
@@ -562,6 +604,8 @@
       document.getElementById('saveBtn').addEventListener('click', saveSamples);
       document.getElementById('loadBtn').addEventListener('click', loadSamples);
       document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+      document.getElementById('autoClipBtn').addEventListener('click', autoCreateClips);
+      document.getElementById('previewClipBtn').addEventListener('click', previewSelectedClip);
       document.getElementById('masterGainRange').addEventListener('input', (e) => {
         setMasterGain(Number(e.target.value) / 100);
       });
@@ -658,6 +702,7 @@
     }
 
     function selectSample(id) {
+      if (!state.samples.some((sample) => sample.id === id)) return;
       state.selectedSample = id;
       renderMarkers();
       document.getElementById('editPanel').classList.add('active');
@@ -685,10 +730,18 @@
         if (state.selectedSample === sample.id) {
           marker.style.boxShadow = '0 0 0 4px rgba(105, 161, 255, 0.26), 0 0 12px rgba(105, 161, 255, 0.85)';
         }
+        const leftHandle = document.createElement('div');
+        leftHandle.className = 'clip-handle left';
+        const rightHandle = document.createElement('div');
+        rightHandle.className = 'clip-handle right';
+        marker.append(leftHandle, rightHandle);
         makeClipDraggable(marker, sample);
+        makeHandleResizable(marker, sample, leftHandle, rightHandle);
         marker.addEventListener('click', () => selectSample(sample.id));
         container.appendChild(marker);
       });
+
+      updateSequencerPalette();
 
       const ctx = canvas.getContext('2d');
       drawWaveform(ctx, canvas.width, canvas.height);
@@ -707,6 +760,7 @@
       document.querySelectorAll('.sample-marker').forEach((marker) => marker.remove());
       document.getElementById('syllableOverlay').innerHTML = '';
       renderTranscript();
+      updateSequencerPalette();
       const canvas = document.getElementById('waveformCanvas');
       drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
     }
@@ -741,6 +795,88 @@
       marker.addEventListener('pointerup', () => {
         dragging = false;
       });
+    }
+
+    function makeHandleResizable(marker, sample, leftHandle, rightHandle) {
+      const attachResize = (handle, direction) => {
+        let resizing = false;
+        let startX = 0;
+        let initialStart = 0;
+        let initialEnd = 0;
+
+        handle.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          resizing = true;
+          startX = e.clientX;
+          initialStart = sample.start;
+          initialEnd = sample.end;
+          handle.setPointerCapture(e.pointerId);
+        });
+
+        handle.addEventListener('pointermove', (e) => {
+          if (!resizing || !state.fullSampleBuffer) return;
+          const rect = marker.parentElement.getBoundingClientRect();
+          const deltaSec = ((e.clientX - startX) / rect.width) * state.fullSampleBuffer.duration;
+          if (direction === 'left') {
+            sample.start = Math.max(0, Math.min(initialEnd - 0.05, initialStart + deltaSec));
+          } else {
+            sample.end = Math.min(state.fullSampleBuffer.duration, Math.max(initialStart + 0.05, initialEnd + deltaSec));
+          }
+          renderMarkers();
+        });
+
+        handle.addEventListener('pointerup', () => {
+          resizing = false;
+        });
+      };
+
+      attachResize(leftHandle, 'left');
+      attachResize(rightHandle, 'right');
+    }
+
+    function previewSelectedClip() {
+      if (state.selectedSample == null) return;
+      const clip = state.samples.find((s) => s.id === state.selectedSample);
+      if (!clip) return;
+      playClip(clip.start, clip.end);
+    }
+
+    function autoCreateClips() {
+      if (!state.fullSampleBuffer) return;
+      const duration = state.fullSampleBuffer.duration;
+      const requested = document.getElementById('segmentMode').value;
+      const mode = requested === 'auto' ? (duration <= 8 ? 'word' : 'sentence') : requested;
+
+      const sourceText = (state.transcriptText || '').trim();
+      const units = mode === 'sentence'
+        ? sourceText.split(/(?<=[.!?؟。])\s+/).filter(Boolean)
+        : sourceText.split(/\s+/).filter(Boolean);
+
+      if (!units.length) {
+        state.samples = [{ id: 0, start: 0, end: Math.min(duration, 1.2), color: colors[0], pitch: 0, stretch: 1, playspeed: 1, phase: 0, volume: 80 }];
+        renderMarkers();
+        return;
+      }
+
+      const count = Math.min(units.length, 10);
+      const slice = duration / count;
+      state.samples = [];
+      for (let i = 0; i < count; i += 1) {
+        const start = i * slice;
+        const end = Math.min(duration, start + Math.max(0.08, slice * 0.92));
+        state.samples.push({
+          id: i,
+          start,
+          end,
+          color: colors[i],
+          pitch: 0,
+          stretch: 1,
+          playspeed: 1,
+          phase: 0,
+          volume: 80
+        });
+      }
+      renderMarkers();
     }
 
     function playSequence() {
@@ -851,6 +987,10 @@
       state.recognition = new SpeechRecognition();
       state.recognition.continuous = true;
       state.recognition.interimResults = true;
+      const selectedLanguage = document.getElementById('languageMode').value;
+      if (selectedLanguage !== 'auto') {
+        state.recognition.lang = selectedLanguage;
+      }
 
       state.recognition.onresult = (event) => {
         let text = '';
@@ -877,14 +1017,17 @@
         URL.revokeObjectURL(state.fullSampleUrl);
       }
       state.fullSampleUrl = url;
+      state.fullSampleDataUrl = await blobToDataUrl(blob);
       state.fullSampleBuffer = await state.audioContext.decodeAudioData(await blob.arrayBuffer());
       state.samples = [];
 
       const transcript = sanitizeTranscript(state.liveTranscript || 'No speech detected.');
       state.transcriptText = transcript;
-      state.detectedLanguage = detectLanguageLabel(transcript);
+      const selectedLanguage = document.getElementById('languageMode').value;
+      state.detectedLanguage = selectedLanguage === 'auto' ? detectLanguageLabel(transcript) : displayLanguageName(selectedLanguage);
       renderTranscript();
       renderSyllableOverlay(transcript);
+      autoCreateClips();
       const canvas = document.getElementById('waveformCanvas');
       drawWaveform(canvas.getContext('2d'), canvas.width, canvas.height);
       state.recordedChunks = [];
@@ -895,13 +1038,14 @@
       const payload = {
         clips: state.samples,
         transcriptText: state.transcriptText,
-        detectedLanguage: state.detectedLanguage
+        detectedLanguage: state.detectedLanguage,
+        fullSampleDataUrl: state.fullSampleDataUrl
       };
       localStorage.setItem('simpler_samples', JSON.stringify(payload));
-      alert('Clip metadata saved. Recordings must be captured again after reload.');
+      alert('Recording and clip set saved.');
     }
 
-    function loadSamples() {
+    async function loadSamples() {
       const data = localStorage.getItem('simpler_samples');
       if (!data) {
         alert('No saved samples found.');
@@ -911,6 +1055,14 @@
       state.samples = parsed.clips || [];
       state.transcriptText = parsed.transcriptText || '';
       state.detectedLanguage = parsed.detectedLanguage || 'Unknown';
+      state.fullSampleDataUrl = parsed.fullSampleDataUrl || '';
+      if (state.fullSampleDataUrl && state.audioContext) {
+        const response = await fetch(state.fullSampleDataUrl);
+        const blob = await response.blob();
+        if (state.fullSampleUrl) URL.revokeObjectURL(state.fullSampleUrl);
+        state.fullSampleUrl = URL.createObjectURL(blob);
+        state.fullSampleBuffer = await state.audioContext.decodeAudioData(await blob.arrayBuffer());
+      }
       renderMarkers();
       renderTranscript();
       renderSyllableOverlay(state.transcriptText);
@@ -947,6 +1099,24 @@
       if (/[\u3040-\u30FF]/.test(text)) return 'Japanese';
       if (/[\u4E00-\u9FFF]/.test(text)) return 'Chinese';
       return 'English / Latin';
+    }
+
+    function displayLanguageName(code) {
+      const labels = {
+        'en-US': 'English',
+        'he-IL': 'Hebrew',
+        'ar-SA': 'Arabic',
+        'ja-JP': 'Japanese'
+      };
+      return labels[code] || code;
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result || '');
+        reader.readAsDataURL(blob);
+      });
     }
 
     function renderSyllableOverlay(text) {
