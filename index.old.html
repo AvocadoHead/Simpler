@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simpler - Pro Workspace</title>
+  <style>
+    :root {
+      --bg: #0b0d14;
+      --panel: rgba(20, 24, 34, 0.8);
+      --border: rgba(105, 161, 255, 0.15);
+      --text: #ffffff;
+      --text-muted: #6b768c;
+      --accent: #4da6ff;
+      --danger: #ff4d4d;
+      --radius: 16px;
+      --anim: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; user-select: none; }
+
+    body {
+      margin: 0; height: 100vh; background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; overflow: hidden;
+      background-image: radial-gradient(circle at 50% 0%, rgba(77, 166, 255, 0.08) 0%, transparent 50%);
+    }
+
+    /* --- TOP NAV (Future Proofing) --- */
+    .top-nav {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px; border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,0.2); z-index: 100;
+    }
+    .brand { font-weight: 900; letter-spacing: 2px; font-size: 1.2rem; color: var(--accent); }
+    .nav-tools { display: flex; gap: 12px; }
+    .mock-auth { color: var(--text-muted); font-size: 0.8rem; border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+    .mock-auth:hover { color: #fff; border-color: #fff; }
+
+    /* --- MODE SELECTOR --- */
+    .mode-tabs {
+      display: flex; gap: 8px; background: rgba(0,0,0,0.4); padding: 6px; border-radius: 30px;
+      position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 100;
+      border: 1px solid var(--border);
+    }
+    .tab {
+      padding: 8px 24px; border-radius: 24px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+      color: var(--text-muted); transition: 0.3s;
+    }
+    .tab.active { background: var(--accent); color: #000; box-shadow: 0 0 15px rgba(77, 166, 255, 0.4); }
+
+    /* --- MAIN WORKSPACE TRANSITIONS --- */
+    .workspace {
+      flex: 1; position: relative; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 20px;
+      margin-top: 50px;
+    }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; backdrop-filter: blur(10px);
+      transition: all var(--anim); position: absolute;
+      opacity: 0; pointer-events: none; transform: scale(0.95) translateY(20px);
+    }
+
+    /* Record Mode */
+    body.mode-record #recordPanel { opacity: 1; pointer-events: all; transform: scale(1) translateY(0); display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    
+    /* Edit Mode */
+    body.mode-edit #editWavePanel { opacity: 1; pointer-events: all; transform: scale(1) translateY(0); top: 20px; width: 90%; max-width: 1000px; height: 35vh; }
+    body.mode-edit #editToolsPanel { opacity: 1; pointer-events: all; transform: scale(1) translateY(0); bottom: 40px; width: 90%; max-width: 1000px; height: 35vh; display: flex; gap: 20px; }
+
+    /* Play Mode */
+    body.mode-play #playPanel { opacity: 1; pointer-events: all; transform: scale(1) translateY(0); bottom: 10vh; width: auto; background: transparent; border: none; }
+
+    /* --- HERO TRANSCRIPT --- */
+    #heroTranscript {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: clamp(3rem, 8vw, 10rem); font-weight: 900; color: #fff;
+      opacity: 0.05; pointer-events: none; text-align: center; filter: blur(10px);
+      transition: all 0.8s ease; z-index: 0; line-height: 1.1; display: flex; flex-wrap: wrap; gap: 20px; align-content: center; justify-content: center;
+    }
+    body.mode-play #heroTranscript { opacity: 0.8; filter: blur(0); }
+    
+    .syllable { transition: all 0.1s; color: rgba(255,255,255,0.2); }
+    .syllable.lit { color: var(--accent); text-shadow: 0 0 30px var(--accent); transform: scale(1.1); }
+
+    /* --- WAVEFORM --- */
+    .canvas-container { position: relative; height: 100%; width: 100%; border-radius: 8px; background: rgba(0,0,0,0.3); overflow: hidden; }
+    canvas { width: 100%; height: 100%; }
+
+    /* Under-bar Sample Markers (Doesn't obscure wave) */
+    .sample-marker {
+      position: absolute; bottom: 0; height: 100%;
+      border-bottom: 6px solid var(--color);
+      background: linear-gradient(to top, var(--color-alpha), transparent 40%);
+      cursor: grab; border-radius: 8px 8px 0 0; min-width: 20px;
+    }
+    .sample-marker:active { cursor: grabbing; background: linear-gradient(to top, var(--color-alpha-strong), transparent 60%); }
+    .clip-handle { position: absolute; top: 0; width: 16px; height: 100%; cursor: ew-resize; z-index: 2; }
+    .clip-handle.left { left: -8px; } .clip-handle.right { right: -8px; }
+
+    /* --- SEQUENCER GRID --- */
+    .sequencer-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; }
+    .node {
+      aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1);
+      cursor: grab; opacity: 0.4; transition: transform 0.1s, border 0.3s;
+      background: var(--color, #333); display: flex; align-items: center; justify-content: center;
+      font-weight: bold; color: rgba(0,0,0,0.5); font-size: 1.2rem; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    .node:active { cursor: grabbing; transform: scale(0.95); }
+    .node.active-pad { opacity: 1; border-color: #fff; }
+    .node.playing { transform: scale(1.1); box-shadow: 0 0 30px var(--color); border-color: #fff; }
+    
+    /* Play mode grid overrides */
+    body.mode-play .sequencer-grid { grid-template-columns: repeat(5, 100px); gap: 30px; }
+
+    /* --- UI CONTROLS --- */
+    .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; }
+    .param-row { display: flex; flex-direction: column; gap: 6px; }
+    .param-row label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;}
+    input[type=range] { width: 100%; accent-color: var(--accent); }
+
+    .btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #fff; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+    .btn-danger { color: var(--danger); border-color: rgba(255,77,77,0.3); }
+    .btn-danger:hover { background: rgba(255,77,77,0.1); border-color: var(--danger); }
+
+    /* Record Button huge */
+    .btn-record { width: 150px; height: 150px; border-radius: 50%; font-size: 1.2rem; background: rgba(255,77,77,0.1); border: 2px solid var(--danger); color: var(--danger); box-shadow: 0 0 30px rgba(255,77,77,0.2); }
+    .btn-record.recording { background: var(--danger); color: #fff; animation: pulse 1s infinite alternate; }
+
+    @keyframes pulse { from { transform: scale(1); box-shadow: 0 0 20px var(--danger); } to { transform: scale(1.05); box-shadow: 0 0 50px var(--danger); } }
+  </style>
+</head>
+<body class="mode-record">
+
+  <div class="top-nav">
+    <div class="brand">SIMPLER</div>
+    <div class="nav-tools">
+      <div class="mock-auth">Log In</div>
+      <div class="mock-auth">Save Project</div>
+    </div>
+  </div>
+
+  <div class="mode-tabs">
+    <div class="tab active" data-mode="record">Record</div>
+    <div class="tab" data-mode="edit">Tweak</div>
+    <div class="tab" data-mode="play">Play</div>
+  </div>
+
+  <div id="heroTranscript">AWAITING AUDIO</div>
+
+  <div class="workspace">
+    
+    <div class="panel" id="recordPanel">
+      <h3 style="color: var(--text-muted); margin: 0;">Input Level</h3>
+      <button class="btn-record" id="recBtn">REC</button>
+      <div style="font-size: 0.8rem; color: var(--text-muted);">(Requires Microphone Access)</div>
+    </div>
+
+    <div class="panel" id="editWavePanel">
+      <div class="canvas-container">
+        <canvas id="waveformCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="panel" id="editToolsPanel">
+      <div style="flex: 0 0 300px; display: flex; flex-direction: column; gap: 10px;">
+        <label style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Sequencer (Drag to Reorder)</label>
+        <div class="sequencer-grid" id="editGrid"></div>
+        <button class="btn btn-danger" id="deleteSampleBtn" style="margin-top: auto;">Delete Selected Sample</button>
+      </div>
+
+      <div style="width: 1px; background: var(--border); margin: 0 10px;"></div>
+
+      <div class="controls-grid" id="slidersGrid" style="opacity: 0.3; pointer-events: none;">
+        <div class="param-row"><label>Pitch</label><input type="range" id="sl-pitch" min="-12" max="12" step="1" value="0"></div>
+        <div class="param-row"><label>Speed</label><input type="range" id="sl-speed" min="0.25" max="2" step="0.1" value="1"></div>
+        <div class="param-row"><label>Phase (Start Offset)</label><input type="range" id="sl-phase" min="0" max="100" step="1" value="0"></div>
+        <div class="param-row"><label>Volume</label><input type="range" id="sl-vol" min="0" max="100" value="80"></div>
+        <div class="param-row"><label>Sustain (Release)</label><input type="range" id="sl-sus" min="0.05" max="2" step="0.05" value="0.2"></div>
+        <div class="param-row"><label>Reverb</label><input type="range" id="sl-rev" min="0" max="100" value="0"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="playPanel">
+      <div class="sequencer-grid" id="playGrid"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const state = {
+      ctx: new (window.AudioContext || window.webkitAudioContext)(),
+      buffer: null,
+      reverbBuffer: null,
+      samples: [],
+      selectedId: null, // Tracks by internal ID, not grid index
+      recorder: null,
+      chunks: [],
+      recognition: null,
+      transcript: '',
+      activeSources: {} // Track playing nodes for DJ stop logic
+    };
+
+    const colors = [
+      '#ff4d4d','#ffa64d','#ffff4d','#4dff4d','#4dffff',
+      '#4da6ff','#a64dff','#ff4da6','#ffffff','#8c8c8c'
+    ];
+
+    // --- SETUP REVERB IMPULSE RESPONSE ---
+    function generateReverb() {
+      const len = state.ctx.sampleRate * 2.5; // 2.5 second tail
+      const ir = state.ctx.createBuffer(2, len, state.ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        let data = ir.getChannelData(c);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+        }
+      }
+      state.reverbBuffer = ir;
+    }
+
+    // --- MODE SWITCHING ---
+    document.querySelectorAll('.tab').forEach(t => {
+      t.onclick = (e) => {
+        document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+        e.target.classList.add('active');
+        const mode = e.target.dataset.mode;
+        document.body.className = `mode-${mode}`;
+        if(mode === 'edit' && state.buffer) setTimeout(drawWave, 400); // Redraw after resize
+      };
+    });
+
+    // --- RECORDING & SPEECH ---
+    document.getElementById('recBtn').onclick = async () => {
+      const btn = document.getElementById('recBtn');
+      if (state.recorder && state.recorder.state === 'recording') {
+        state.recorder.stop();
+        if(state.recognition) state.recognition.stop();
+        btn.classList.remove('recording');
+        btn.innerText = 'REC';
+        document.querySelector('[data-mode="edit"]').click(); // Auto jump to tweak
+        return;
+      }
+
+      if (state.ctx.state === 'suspended') await state.ctx.resume();
+      if (!state.reverbBuffer) generateReverb();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      state.recorder = new MediaRecorder(stream);
+      state.chunks = [];
+      state.transcript = '';
+      
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SR) {
+        state.recognition = new SR();
+        state.recognition.continuous = true;
+        state.recognition.interimResults = true;
+        state.recognition.onresult = e => {
+          state.transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+          renderTranscriptText();
+        };
+        state.recognition.start();
+      }
+
+      state.recorder.ondataavailable = e => state.chunks.push(e.data);
+      state.recorder.onstop = async () => {
+        const blob = new Blob(state.chunks);
+        state.buffer = await state.ctx.decodeAudioData(await blob.arrayBuffer());
+        autoSlice();
+        drawWave();
+      };
+
+      state.recorder.start();
+      btn.classList.add('recording');
+      btn.innerText = 'STOP';
+    };
+
+    function renderTranscriptText() {
+      const container = document.getElementById('heroTranscript');
+      container.innerHTML = '';
+      const words = (state.transcript || 'AUDIO READY').trim().split(/\s+/).filter(Boolean);
+      words.forEach((word, i) => {
+        const span = document.createElement('span');
+        span.className = 'syllable';
+        span.id = `syl-${i}`;
+        span.innerText = word;
+        container.appendChild(span);
+      });
+    }
+
+    // --- SLICING & WAVEFORM ---
+    function autoSlice() {
+      if(!state.buffer) return;
+      const dur = state.buffer.duration;
+      // Basic gap trimmer: trim 5% off start/end blindly to simulate basic bounds
+      const safeDur = dur * 0.9; 
+      const startOffset = dur * 0.05;
+      
+      const words = (state.transcript || 'a b c').trim().split(/\s+/).filter(Boolean);
+      const count = Math.min(10, Math.max(1, words.length));
+      const slice = safeDur / count;
+
+      state.samples = [];
+      for(let i=0; i<count; i++) {
+        state.samples.push({
+          id: i, // Permanent unique ID
+          start: startOffset + (i*slice), 
+          end: startOffset + ((i+1)*slice) - 0.05, // Create slight visual gap
+          pitch: 0, speed: 1, vol: 80, phase: 0, sus: 0.2, rev: 0
+        });
+      }
+      buildGrids();
+      renderMarkers();
+    }
+
+    function drawWave() {
+      const canvas = document.getElementById('waveformCanvas');
+      const cc = canvas.getContext('2d');
+      const w = canvas.width = canvas.offsetWidth;
+      const h = canvas.height = canvas.offsetHeight;
+      
+      cc.clearRect(0,0,w,h);
+      if(!state.buffer) return;
+
+      const data = state.buffer.getChannelData(0);
+      const step = Math.ceil(data.length / w);
+      
+      cc.fillStyle = 'rgba(255,255,255,0.4)';
+      for(let i=0; i<w; i++) {
+        let min=1, max=-1;
+        for(let j=0; j<step; j++) {
+          let datum = data[(i*step)+j];
+          if(datum < min) min = datum;
+          if(datum > max) max = datum;
+        }
+        cc.fillRect(i, (1+min)*(h/2), 1, Math.max(1, (max-min)*(h/2)));
+      }
+    }
+
+    function renderMarkers() {
+      const container = document.querySelector('.canvas-container');
+      document.querySelectorAll('.sample-marker').forEach(e => e.remove());
+      if(!state.buffer) return;
+      const dur = state.buffer.duration;
+
+      state.samples.forEach((s, gridIndex) => {
+        const marker = document.createElement('div');
+        marker.className = 'sample-marker';
+        marker.style.setProperty('--color', colors[s.id]);
+        marker.style.setProperty('--color-alpha', colors[s.id] + '40');
+        marker.style.setProperty('--color-alpha-strong', colors[s.id] + '80');
+
+        const updateVis = () => {
+          marker.style.left = (s.start / dur * 100) + '%';
+          marker.style.width = ((s.end - s.start) / dur * 100) + '%';
+        };
+        updateVis();
+
+        if (state.selectedId === s.id) marker.style.borderTop = '2px solid #fff';
+
+        const lH = document.createElement('div'); lH.className = 'clip-handle left';
+        const rH = document.createElement('div'); rH.className = 'clip-handle right';
+        marker.append(lH, rH);
+
+        // Body Drag
+        marker.onmousedown = (e) => {
+          if(e.target !== marker) return;
+          selectSample(s.id);
+          let startX = e.clientX, initStart = s.start, len = s.end - s.start;
+          window.onmousemove = (ev) => {
+            let delta = ((ev.clientX - startX) / container.offsetWidth) * dur;
+            s.start = Math.max(0, Math.min(dur - len, initStart + delta));
+            s.end = s.start + len;
+            updateVis();
+          };
+          window.onmouseup = () => window.onmousemove = null;
+        };
+
+        // Resize Handles
+        const attachResize = (handle, isLeft) => {
+          handle.onmousedown = (e) => {
+            e.stopPropagation(); selectSample(s.id);
+            let startX = e.clientX, initVal = isLeft ? s.start : s.end;
+            window.onmousemove = (ev) => {
+              let delta = ((ev.clientX - startX) / container.offsetWidth) * dur;
+              if(isLeft) s.start = Math.max(0, Math.min(s.end - 0.02, initVal + delta));
+              else s.end = Math.min(dur, Math.max(s.start + 0.02, initVal + delta));
+              updateVis();
+            };
+            window.onmouseup = () => window.onmousemove = null;
+          };
+        };
+        attachResize(lH, true); attachResize(rH, false);
+
+        container.appendChild(marker);
+      });
+    }
+
+    // --- SEQUENCER GRIDS & DRAG/DROP ---
+    function buildGrids() {
+      const editGrid = document.getElementById('editGrid');
+      const playGrid = document.getElementById('playGrid');
+      editGrid.innerHTML = ''; playGrid.innerHTML = '';
+
+      state.samples.forEach((s, index) => {
+        const createNode = (isPlayMode) => {
+          const node = document.createElement('div');
+          node.className = `node active-pad`;
+          node.style.setProperty('--color', colors[s.id]);
+          node.innerText = index + 1; // Grid position number
+          node.dataset.index = index; // Current array index
+          
+          // DJ Interaction Logic (Mousedown -> Play, Mouseup -> Stop)
+          const startEvt = (e) => { e.preventDefault(); selectSample(s.id); playPad(s.id, node); };
+          const stopEvt = (e) => { e.preventDefault(); stopPad(s.id, node); };
+          
+          node.addEventListener('mousedown', startEvt);
+          node.addEventListener('touchstart', startEvt);
+          window.addEventListener('mouseup', stopEvt); // Catch release outside
+          node.addEventListener('touchend', stopEvt);
+
+          if(!isPlayMode) {
+             // Drag and Drop arrangement for Edit mode
+             node.draggable = true;
+             node.ondragstart = (e) => e.dataTransfer.setData('text/plain', index);
+             node.ondragover = (e) => e.preventDefault();
+             node.ondrop = (e) => {
+                e.preventDefault();
+                const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                const toIdx = index;
+                // Swap in array
+                const temp = state.samples[fromIdx];
+                state.samples[fromIdx] = state.samples[toIdx];
+                state.samples[toIdx] = temp;
+                buildGrids();
+             };
+          }
+          return node;
+        };
+        
+        editGrid.appendChild(createNode(false));
+        playGrid.appendChild(createNode(true));
+      });
+      renderMarkers(); // Ensure colors map to correct new positions visually
+    }
+
+    // --- AUDIO ENGINE (DJ PLAY/STOP & FX) ---
+    function playPad(id, domNode) {
+      if(!state.buffer) return;
+      const s = state.samples.find(x => x.id === id);
+      if(!s) return;
+
+      // Stop previous instance if playing
+      if(state.activeSources[id]) stopPad(id, domNode, true);
+
+      domNode.classList.add('playing');
+      const sylObj = document.getElementById(`syl-${state.samples.indexOf(s)}`);
+      if(sylObj) sylObj.classList.add('lit');
+
+      const src = state.ctx.createBufferSource();
+      src.buffer = state.buffer;
+      
+      // Pitch & Speed
+      src.playbackRate.value = Math.max(0.1, (2 ** (s.pitch/12)) * s.speed);
+      
+      // ADSR Sustain Env
+      const envGain = state.ctx.createGain();
+      envGain.gain.setValueAtTime(0, state.ctx.currentTime);
+      envGain.gain.linearRampToValueAtTime(s.vol / 100, state.ctx.currentTime + 0.01); // Quick attack
+
+      // Reverb Setup
+      const dryGain = state.ctx.createGain();
+      const wetGain = state.ctx.createGain();
+      dryGain.gain.value = 1 - (s.rev / 100);
+      wetGain.gain.value = s.rev / 100;
+      
+      let finalDest = state.ctx.destination;
+      if(s.rev > 0 && state.reverbBuffer) {
+        const convolver = state.ctx.createConvolver();
+        convolver.buffer = state.reverbBuffer;
+        envGain.connect(convolver).connect(wetGain).connect(finalDest);
+      }
+      envGain.connect(dryGain).connect(finalDest);
+      src.connect(envGain);
+
+      // Phase calculation
+      const clipLen = s.end - s.start;
+      const startOffset = s.start + (clipLen * (s.phase / 100));
+
+      src.start(0, startOffset, s.end - startOffset);
+      
+      state.activeSources[id] = { src, envGain, domNode, s };
+
+      src.onended = () => stopPad(id, domNode);
+    }
+
+    function stopPad(id, domNode, immediate=false) {
+      const active = state.activeSources[id];
+      if(!active) return;
+      
+      // Remove visual glow
+      if(active.domNode) active.domNode.classList.remove('playing');
+      const sylObj = document.getElementById(`syl-${state.samples.indexOf(active.s)}`);
+      if(sylObj) sylObj.classList.remove('lit');
+
+      // Release envelope
+      const releaseTime = immediate ? 0.01 : active.s.sus;
+      active.envGain.gain.cancelScheduledValues(state.ctx.currentTime);
+      active.envGain.gain.setTargetAtTime(0, state.ctx.currentTime, releaseTime / 3);
+      
+      setTimeout(() => {
+        try { active.src.stop(); } catch(e){}
+      }, releaseTime * 1000);
+
+      delete state.activeSources[id];
+    }
+
+    // --- TWEAKING ---
+    function selectSample(id) {
+      state.selectedId = id;
+      const s = state.samples.find(x => x.id === id);
+      
+      document.getElementById('slidersGrid').style.opacity = s ? '1' : '0.3';
+      document.getElementById('slidersGrid').style.pointerEvents = s ? 'all' : 'none';
+      
+      if(s) {
+        document.getElementById('sl-pitch').value = s.pitch;
+        document.getElementById('sl-speed').value = s.speed;
+        document.getElementById('sl-phase').value = s.phase;
+        document.getElementById('sl-vol').value = s.vol;
+        document.getElementById('sl-sus').value = s.sus;
+        document.getElementById('sl-rev').value = s.rev;
+      }
+      renderMarkers(); // Redraw selection highlight
+    }
+
+    ['pitch', 'speed', 'phase', 'vol', 'sus', 'rev'].forEach(param => {
+      document.getElementById('sl-' + param).oninput = (e) => {
+        if(state.selectedId != null) {
+          state.samples.find(s => s.id === state.selectedId)[param] = parseFloat(e.target.value);
+        }
+      };
+    });
+
+    document.getElementById('deleteSampleBtn').onclick = () => {
+      if(state.selectedId == null) return;
+      state.samples = state.samples.filter(s => s.id !== state.selectedId);
+      state.selectedId = null;
+      buildGrids();
+      selectSample(null);
+    };
+
+  </script>
+</body>
+</html>

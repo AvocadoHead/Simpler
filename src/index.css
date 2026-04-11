@@ -1,0 +1,459 @@
+:root {
+  --bg: #0b0d14;
+  --panel: rgba(20, 24, 34, 0.8);
+  --border: rgba(105, 161, 255, 0.15);
+  --text: #ffffff;
+  --text-muted: #6b768c;
+  --accent: #4da6ff;
+  --danger: #ff4d4d;
+  --radius: 16px;
+  --anim: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  font-family: system-ui, sans-serif;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  background-image: radial-gradient(
+    circle at 50% 0%,
+    rgba(77, 166, 255, 0.08) 0%,
+    transparent 50%
+  );
+}
+
+#root {
+  height: 100%;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- TOP NAV --- */
+.top-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.brand {
+  font-weight: 900;
+  letter-spacing: 2px;
+  font-size: 1.2rem;
+  color: var(--accent);
+}
+
+.nav-tools {
+  display: flex;
+  gap: 12px;
+}
+
+.mock-auth {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: 0.2s;
+  background: transparent;
+}
+
+.mock-auth:hover {
+  color: #fff;
+  border-color: #fff;
+}
+
+/* --- MODE TABS --- */
+.mode-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  border-radius: 30px;
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  border: 1px solid var(--border);
+}
+
+.tab {
+  position: relative;
+  padding: 8px 24px;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  transition: color 0.3s;
+  background: transparent;
+  border: none;
+}
+
+.tab.active {
+  background: var(--accent);
+  color: #000;
+  box-shadow: 0 0 15px rgba(77, 166, 255, 0.4);
+}
+
+/* --- WORKSPACE --- */
+.workspace {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  margin-top: 50px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+/* --- RECORD PANEL --- */
+.record-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.input-level-label {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.mic-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.btn-record {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  font-weight: bold;
+  background: rgba(255, 77, 77, 0.1);
+  border: 2px solid var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 30px rgba(255, 77, 77, 0.2);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-record.recording {
+  background: var(--danger);
+  color: #fff;
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    box-shadow: 0 0 20px var(--danger);
+  }
+  to {
+    transform: scale(1.05);
+    box-shadow: 0 0 50px var(--danger);
+  }
+}
+
+/* --- EDIT PANELS --- */
+.edit-wave-panel {
+  position: absolute;
+  top: 20px;
+  width: 90%;
+  max-width: 1000px;
+  height: 35vh;
+}
+
+.edit-tools-panel {
+  position: absolute;
+  bottom: 40px;
+  width: 90%;
+  max-width: 1000px;
+  height: 35vh;
+  display: flex;
+  gap: 20px;
+}
+
+.tools-left {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sequencer-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.tools-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 0 10px;
+}
+
+/* --- PLAY PANEL --- */
+.play-panel {
+  position: absolute;
+  bottom: 10vh;
+  width: auto;
+  background: transparent;
+  border: none;
+}
+
+/* --- HERO TRANSCRIPT --- */
+.hero-transcript {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  gap: 20px;
+  font-size: clamp(3rem, 8vw, 10rem);
+  font-weight: 900;
+  color: #fff;
+  opacity: 0.05;
+  pointer-events: none;
+  text-align: center;
+  filter: blur(10px);
+  transition: all 0.8s ease;
+  z-index: 0;
+  line-height: 1.1;
+}
+
+.hero-transcript.visible {
+  opacity: 0.8;
+  filter: blur(0);
+}
+
+.syllable {
+  transition: all 0.1s;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.syllable.lit {
+  color: var(--accent);
+  text-shadow: 0 0 30px var(--accent);
+  transform: scale(1.1);
+}
+
+/* --- WAVEFORM --- */
+.canvas-container {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.waveform-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.no-audio-message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* --- SAMPLE MARKERS --- */
+.sample-marker {
+  position: absolute;
+  bottom: 0;
+  height: 100%;
+  border-bottom: 6px solid var(--color);
+  background: linear-gradient(to top, var(--color-alpha), transparent 40%);
+  cursor: grab;
+  border-radius: 8px 8px 0 0;
+  min-width: 20px;
+  transition: background 0.2s;
+}
+
+.sample-marker:hover {
+  background: linear-gradient(to top, var(--color-alpha-strong), transparent 50%);
+}
+
+.sample-marker.selected {
+  border-top: 2px solid #fff;
+}
+
+.sample-marker.dragging {
+  cursor: grabbing;
+  background: linear-gradient(to top, var(--color-alpha-strong), transparent 60%);
+  opacity: 0.9;
+}
+
+.clip-handle {
+  position: absolute;
+  top: 0;
+  width: 24px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 2;
+}
+
+.clip-handle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.clip-handle.left {
+  left: -12px;
+}
+
+.clip-handle.right {
+  right: -12px;
+}
+
+/* --- SEQUENCER GRID --- */
+.sequencer-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
+}
+
+.sequencer-grid.play-mode {
+  grid-template-columns: repeat(5, 100px);
+  gap: 30px;
+}
+
+.node {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  cursor: grab;
+  opacity: 0.4;
+  transition: transform 0.1s, border 0.3s, opacity 0.3s;
+  background: var(--color, #333);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 1.2rem;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.node:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+.node.active-pad {
+  opacity: 1;
+  border-color: #fff;
+}
+
+.node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 15px var(--color);
+}
+
+.node.playing {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px var(--color);
+  border-color: #fff;
+}
+
+/* --- CONTROLS --- */
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.controls-grid.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.param-row label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* --- BUTTONS --- */
+.btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: rgba(255, 77, 77, 0.3);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(255, 77, 77, 0.1);
+  border-color: var(--danger);
+}
+
+.add-sample-btn {
+  margin-top: auto;
+}
