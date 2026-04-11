@@ -457,3 +457,21 @@ input[type='range'] {
 .add-sample-btn {
   margin-top: auto;
 }
+
+/* --- RESET BUTTON --- */
+.reset-row {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+.btn-reset {
+  width: 100%;
+  background: rgba(77, 166, 255, 0.1);
+  border-color: rgba(77, 166, 255, 0.3);
+  color: var(--accent);
+}
+
+.btn-reset:hover:not(:disabled) {
+  background: rgba(77, 166, 255, 0.2);
+  border-color: var(--accent);
+}

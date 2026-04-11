@@ -16,4 +16,7 @@ export interface ActiveSource {
   source: AudioBufferSourceNode
   gainNode: GainNode
   sampleId: number
+  convolver?: ConvolverNode
+  wetGain?: GainNode
+  dryGain?: GainNode
 }

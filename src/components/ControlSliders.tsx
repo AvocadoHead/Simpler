@@ -21,6 +21,15 @@ const sliders: SliderConfig[] = [
   { key: 'rev', label: 'Reverb', min: 0, max: 100, step: 1, defaultValue: 0 },
 ]
 
+const defaultValues: Record<ParamKey, number> = {
+  pitch: 0,
+  speed: 1,
+  phase: 0,
+  vol: 80,
+  sus: 0.2,
+  rev: 0,
+}
+
 export function ControlSliders() {
   const selectedId = useStore((s) => s.selectedId)
   const samples = useStore((s) => s.samples)
@@ -32,6 +41,12 @@ export function ControlSliders() {
   const handleChange = (key: ParamKey, value: number) => {
     if (selectedId !== null) {
       updateSample(selectedId, { [key]: value })
+    }
+  }
+
+  const handleReset = () => {
+    if (selectedId !== null) {
+      updateSample(selectedId, { ...defaultValues })
     }
   }
 
@@ -51,6 +66,15 @@ export function ControlSliders() {
           />
         </div>
       ))}
+      <div className="param-row reset-row">
+        <button
+          className="btn btn-reset"
+          onClick={handleReset}
+          disabled={!isActive}
+        >
+          Reset to Default
+        </button>
+      </div>
     </div>
   )
 }
