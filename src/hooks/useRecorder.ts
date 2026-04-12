@@ -205,7 +205,7 @@ export function useRecorder() {
       speed: 1,
       vol: 80,
       phase: 0,
-      sus: 0.3,
+      delay: 0,
       rev: 0,
     }))
 

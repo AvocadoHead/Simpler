@@ -1,7 +1,7 @@
 import { useStore } from '../store/useStore'
 import type { Sample } from '../types'
 
-type ParamKey = 'pitch' | 'speed' | 'phase' | 'vol' | 'sus' | 'rev'
+type ParamKey = 'pitch' | 'speed' | 'phase' | 'vol' | 'delay' | 'rev'
 
 interface SliderConfig {
   key: ParamKey
@@ -13,11 +13,11 @@ interface SliderConfig {
 }
 
 const sliders: SliderConfig[] = [
-  { key: 'pitch', label: 'Pitch', min: -12, max: 12, step: 1, defaultValue: 0 },
-  { key: 'speed', label: 'Speed', min: 0.25, max: 2, step: 0.1, defaultValue: 1 },
-  { key: 'phase', label: 'Phase (Start Offset)', min: 0, max: 100, step: 1, defaultValue: 0 },
+  { key: 'pitch', label: 'Pitch (semitones)', min: -12, max: 12, step: 1, defaultValue: 0 },
+  { key: 'speed', label: 'Speed', min: 0.5, max: 2, step: 0.1, defaultValue: 1 },
   { key: 'vol', label: 'Volume', min: 0, max: 100, step: 1, defaultValue: 80 },
-  { key: 'sus', label: 'Sustain (Release)', min: 0.05, max: 2, step: 0.05, defaultValue: 0.2 },
+  { key: 'phase', label: 'Start Offset', min: 0, max: 100, step: 1, defaultValue: 0 },
+  { key: 'delay', label: 'Delay/Echo', min: 0, max: 100, step: 1, defaultValue: 0 },
   { key: 'rev', label: 'Reverb', min: 0, max: 100, step: 1, defaultValue: 0 },
 ]
 
@@ -26,7 +26,7 @@ const defaultValues: Record<ParamKey, number> = {
   speed: 1,
   phase: 0,
   vol: 80,
-  sus: 0.2,
+  delay: 0,
   rev: 0,
 }
 
@@ -72,7 +72,7 @@ export function ControlSliders() {
           onClick={handleReset}
           disabled={!isActive}
         >
-          Reset to Default
+          Reset
         </button>
       </div>
     </div>

@@ -490,3 +490,272 @@ input[type='range'] {
   background: rgba(77, 166, 255, 0.2);
   border-color: var(--accent);
 }
+
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* Nav */
+  .top-nav {
+    padding: 12px 16px;
+  }
+
+  .brand {
+    font-size: 1rem;
+  }
+
+  .nav-tools {
+    gap: 8px;
+  }
+
+  .mock-auth {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+  }
+
+  /* Mode tabs */
+  .mode-tabs {
+    top: 70px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 6px 16px;
+    font-size: 0.8rem;
+  }
+
+  /* Workspace */
+  .workspace {
+    padding: 10px;
+    margin-top: 40px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  /* Record panel */
+  .btn-record {
+    width: 120px;
+    height: 120px;
+    font-size: 1rem;
+  }
+
+  /* Edit panels - stack vertically */
+  .edit-wave-panel {
+    position: relative;
+    top: auto;
+    width: 100%;
+    height: 25vh;
+    min-height: 150px;
+    margin-bottom: 10px;
+  }
+
+  .edit-tools-panel {
+    position: relative;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  .tools-left {
+    flex: none;
+    width: 100%;
+  }
+
+  .sequencer-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  .tools-divider {
+    display: none;
+  }
+
+  .controls-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .param-row label {
+    font-size: 0.65rem;
+  }
+
+  /* Play mode */
+  .play-panel {
+    bottom: 5vh;
+  }
+
+  .sequencer-grid.play-mode {
+    grid-template-columns: repeat(5, 60px);
+    gap: 12px;
+  }
+
+  .node {
+    font-size: 0.9rem;
+  }
+
+  /* Transcript */
+  .hero-transcript {
+    padding: 80px 20px 20px;
+    font-size: clamp(1rem, 4vw, 2rem);
+  }
+
+  .hero-transcript.visible {
+    font-size: clamp(1.2rem, 5vw, 2.5rem);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .mode-tabs {
+    top: 65px;
+  }
+
+  .tab {
+    padding: 5px 12px;
+    font-size: 0.75rem;
+  }
+
+  .workspace {
+    margin-top: 35px;
+  }
+
+  .btn-record {
+    width: 100px;
+    height: 100px;
+    font-size: 0.9rem;
+  }
+
+  .edit-wave-panel {
+    height: 20vh;
+    min-height: 120px;
+  }
+
+  .sequencer-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+
+  .sequencer-grid.play-mode {
+    grid-template-columns: repeat(5, 50px);
+    gap: 10px;
+  }
+
+  .controls-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hero-transcript {
+    padding: 70px 15px 15px;
+    font-size: clamp(0.9rem, 3.5vw, 1.5rem);
+    gap: 8px;
+  }
+
+  .hero-transcript.visible {
+    font-size: clamp(1rem, 4vw, 2rem);
+  }
+
+  /* Sample markers - larger touch targets */
+  .clip-handle {
+    width: 32px;
+  }
+
+  .clip-handle.left {
+    left: -16px;
+  }
+
+  .clip-handle.right {
+    right: -16px;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (pointer: coarse) {
+  .node {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .tab {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  input[type='range'] {
+    height: 24px;
+  }
+
+  .clip-handle {
+    width: 36px;
+  }
+
+  .clip-handle.left {
+    left: -18px;
+  }
+
+  .clip-handle.right {
+    right: -18px;
+  }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .mode-tabs {
+    top: 60px;
+  }
+
+  .workspace {
+    margin-top: 30px;
+  }
+
+  .edit-wave-panel {
+    height: 30vh;
+  }
+
+  .edit-tools-panel {
+    flex-direction: row;
+    height: auto;
+    max-height: 45vh;
+  }
+
+  .tools-left {
+    flex: 0 0 200px;
+  }
+
+  .tools-divider {
+    display: block;
+  }
+
+  .play-panel {
+    bottom: 2vh;
+  }
+
+  .sequencer-grid.play-mode {
+    grid-template-columns: repeat(5, 50px);
+    gap: 8px;
+  }
+
+  .hero-transcript {
+    padding: 50px 20px 10px;
+  }
+}
