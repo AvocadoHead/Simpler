@@ -5,6 +5,7 @@ interface State {
   mode: Mode
   samples: Sample[]
   selectedId: number | null
+  playingIndex: number | null  // Track which sample index is currently playing
   audioBuffer: AudioBuffer | null
   transcript: string
   isRecording: boolean
@@ -15,6 +16,7 @@ interface State {
   updateSample: (id: number, updates: Partial<Sample>) => void
   deleteSample: (id: number) => void
   setSelectedId: (id: number | null) => void
+  setPlayingIndex: (index: number | null) => void
   setAudioBuffer: (buffer: AudioBuffer | null) => void
   setTranscript: (transcript: string) => void
   setIsRecording: (isRecording: boolean) => void
@@ -25,6 +27,7 @@ export const useStore = create<State>((set) => ({
   mode: 'record',
   samples: [],
   selectedId: null,
+  playingIndex: null,
   audioBuffer: null,
   transcript: '',
   isRecording: false,
@@ -49,6 +52,8 @@ export const useStore = create<State>((set) => ({
   })),
 
   setSelectedId: (id) => set({ selectedId: id }),
+
+  setPlayingIndex: (index) => set({ playingIndex: index }),
 
   setAudioBuffer: (buffer) => set({ audioBuffer: buffer }),
 

@@ -24,6 +24,7 @@ export function SamplePad({
   const mode = useStore((s) => s.mode)
   const selectedId = useStore((s) => s.selectedId)
   const setSelectedId = useStore((s) => s.setSelectedId)
+  const setPlayingIndex = useStore((s) => s.setPlayingIndex)
   const { playSample, stopSample } = useAudioEngine()
   const isHeldRef = useRef(false)
 
@@ -34,16 +35,21 @@ export function SamplePad({
     if (isHeldRef.current) return
     isHeldRef.current = true
     setSelectedId(sample.id)
+    setPlayingIndex(index)
     setIsPlaying(true)
-    playSample(sample, () => setIsPlaying(false))
-  }, [sample, setSelectedId, playSample])
+    playSample(sample, () => {
+      setIsPlaying(false)
+      setPlayingIndex(null)
+    })
+  }, [sample, index, setSelectedId, setPlayingIndex, playSample])
 
   const stopPlay = useCallback(() => {
     if (!isHeldRef.current) return
     isHeldRef.current = false
     stopSample(sample.id, sample)
     setIsPlaying(false)
-  }, [sample, stopSample])
+    setPlayingIndex(null)
+  }, [sample, stopSample, setPlayingIndex])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()

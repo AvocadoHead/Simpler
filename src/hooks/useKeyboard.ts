@@ -20,6 +20,7 @@ export function useKeyboard() {
   const mode = useStore((s) => s.mode)
   const samples = useStore((s) => s.samples)
   const setSelectedId = useStore((s) => s.setSelectedId)
+  const setPlayingIndex = useStore((s) => s.setPlayingIndex)
   const { playSample, stopSample } = useAudioEngine()
 
   const pressedKeysRef = useRef<Set<string>>(new Set())
@@ -39,9 +40,15 @@ export function useKeyboard() {
     pressedKeysRef.current.add(e.key)
 
     setSelectedId(sample.id)
-    playSample(sample)
+    setPlayingIndex(index)
+    playSample(sample, () => {
+      // Only clear if this sample is still the one playing
+      if (playingRef.current.get(index) === sample) {
+        setPlayingIndex(null)
+      }
+    })
     playingRef.current.set(index, sample)
-  }, [mode, samples, setSelectedId, playSample])
+  }, [mode, samples, setSelectedId, setPlayingIndex, playSample])
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
     if (mode !== 'play') return
@@ -55,8 +62,9 @@ export function useKeyboard() {
     if (sample) {
       stopSample(sample.id, sample)
       playingRef.current.delete(index)
+      setPlayingIndex(null)
     }
-  }, [mode, stopSample])
+  }, [mode, stopSample, setPlayingIndex])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
