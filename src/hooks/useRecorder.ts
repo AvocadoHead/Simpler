@@ -24,27 +24,27 @@ declare global {
   }
 }
 
-// Detect silence gaps in audio to find word boundaries
-function detectSilenceGaps(
+// Find sound regions (non-silent parts) in audio
+function findSoundRegions(
   buffer: AudioBuffer,
   options: {
     silenceThreshold?: number
-    minSilenceDuration?: number
-    minSegmentDuration?: number
+    minSoundDuration?: number
+    paddingMs?: number
   } = {}
-): number[] {
+): Array<{ start: number; end: number }> {
   const {
-    silenceThreshold = 0.02,
-    minSilenceDuration = 0.08,  // 80ms minimum silence between words
-    minSegmentDuration = 0.1,   // 100ms minimum segment length
+    silenceThreshold = 0.015,
+    minSoundDuration = 0.05,  // 50ms minimum sound length
+    paddingMs = 10,           // 10ms padding around sounds
   } = options
 
   const data = buffer.getChannelData(0)
   const sampleRate = buffer.sampleRate
-  const minSilenceSamples = Math.floor(minSilenceDuration * sampleRate)
+  const padding = paddingMs / 1000
 
   // Find RMS energy in windows
-  const windowSize = Math.floor(0.01 * sampleRate) // 10ms windows
+  const windowSize = Math.floor(0.005 * sampleRate) // 5ms windows for precision
   const energies: number[] = []
 
   for (let i = 0; i < data.length; i += windowSize) {
@@ -56,42 +56,57 @@ function detectSilenceGaps(
     energies.push(Math.sqrt(sum / (end - i)))
   }
 
-  // Find silence regions
-  const silenceRegions: Array<{ start: number; end: number }> = []
-  let silenceStart: number | null = null
+  // Find sound regions (non-silent)
+  const soundRegions: Array<{ start: number; end: number }> = []
+  let soundStart: number | null = null
 
   for (let i = 0; i < energies.length; i++) {
-    const isSilent = energies[i] < silenceThreshold
+    const hasSound = energies[i] >= silenceThreshold
 
-    if (isSilent && silenceStart === null) {
-      silenceStart = i * windowSize
-    } else if (!isSilent && silenceStart !== null) {
-      const silenceEnd = i * windowSize
-      if (silenceEnd - silenceStart >= minSilenceSamples) {
-        silenceRegions.push({ start: silenceStart, end: silenceEnd })
+    if (hasSound && soundStart === null) {
+      soundStart = i * windowSize / sampleRate
+    } else if (!hasSound && soundStart !== null) {
+      const soundEnd = i * windowSize / sampleRate
+      if (soundEnd - soundStart >= minSoundDuration) {
+        soundRegions.push({
+          start: Math.max(0, soundStart - padding),
+          end: Math.min(buffer.duration, soundEnd + padding),
+        })
       }
-      silenceStart = null
+      soundStart = null
     }
   }
 
-  // Convert silence regions to segment boundaries
-  const boundaries: number[] = [0]
-
-  for (const region of silenceRegions) {
-    // Use the middle of the silence gap as the boundary
-    const midpoint = (region.start + region.end) / 2 / sampleRate
-
-    // Only add if it creates a segment longer than minimum
-    const lastBoundary = boundaries[boundaries.length - 1]
-    if (midpoint - lastBoundary >= minSegmentDuration) {
-      boundaries.push(midpoint)
+  // Handle sound at the end
+  if (soundStart !== null) {
+    const soundEnd = buffer.duration
+    if (soundEnd - soundStart >= minSoundDuration) {
+      soundRegions.push({
+        start: Math.max(0, soundStart - padding),
+        end: soundEnd,
+      })
     }
   }
 
-  // Add end boundary
-  boundaries.push(buffer.duration)
+  // Merge overlapping or very close regions
+  const mergedRegions: Array<{ start: number; end: number }> = []
+  const mergeGap = 0.08 // Merge if gap < 80ms
 
-  return boundaries
+  for (const region of soundRegions) {
+    if (mergedRegions.length === 0) {
+      mergedRegions.push(region)
+    } else {
+      const last = mergedRegions[mergedRegions.length - 1]
+      if (region.start - last.end < mergeGap) {
+        // Merge with previous
+        last.end = region.end
+      } else {
+        mergedRegions.push(region)
+      }
+    }
+  }
+
+  return mergedRegions
 }
 
 export function useRecorder() {
@@ -112,97 +127,80 @@ export function useRecorder() {
     const words = transcript.trim().split(/\s+/).filter(Boolean)
     const wordCount = words.length
 
-    // Detect silence gaps in audio
-    const boundaries = detectSilenceGaps(buffer, {
-      silenceThreshold: 0.015,
-      minSilenceDuration: 0.06,
-      minSegmentDuration: 0.08,
+    // Find actual sound regions (no silence included)
+    let regions = findSoundRegions(buffer, {
+      silenceThreshold: 0.012,
+      minSoundDuration: 0.04,
+      paddingMs: 8,
     })
 
-    // Create segments from boundaries
-    const segments: Array<{ start: number; end: number }> = []
-    for (let i = 0; i < boundaries.length - 1; i++) {
-      segments.push({
-        start: boundaries[i],
-        end: boundaries[i + 1],
-      })
+    // If no regions found, use the whole buffer
+    if (regions.length === 0) {
+      regions = [{ start: 0, end: buffer.duration }]
     }
 
     // Limit to 10 samples max
-    let finalSegments = segments
+    let finalRegions = regions
 
-    if (segments.length > 10) {
-      // Merge smallest adjacent segments until we have 10
-      while (finalSegments.length > 10) {
-        let minDuration = Infinity
+    if (regions.length > 10) {
+      // Merge smallest adjacent regions until we have 10
+      while (finalRegions.length > 10) {
+        let minGap = Infinity
         let minIndex = 0
 
-        for (let i = 0; i < finalSegments.length - 1; i++) {
-          const combined = finalSegments[i + 1].end - finalSegments[i].start
-          if (combined < minDuration) {
-            minDuration = combined
+        for (let i = 0; i < finalRegions.length - 1; i++) {
+          const gap = finalRegions[i + 1].start - finalRegions[i].end
+          if (gap < minGap) {
+            minGap = gap
             minIndex = i
           }
         }
 
-        // Merge segments at minIndex and minIndex + 1
-        finalSegments = [
-          ...finalSegments.slice(0, minIndex),
-          { start: finalSegments[minIndex].start, end: finalSegments[minIndex + 1].end },
-          ...finalSegments.slice(minIndex + 2),
+        // Merge regions at minIndex and minIndex + 1
+        finalRegions = [
+          ...finalRegions.slice(0, minIndex),
+          { start: finalRegions[minIndex].start, end: finalRegions[minIndex + 1].end },
+          ...finalRegions.slice(minIndex + 2),
         ]
       }
-    } else if (segments.length < wordCount && wordCount <= 10) {
-      // If we have fewer segments than words, try to match word count
-      // by subdividing longer segments
-      finalSegments = [...segments]
+    } else if (regions.length < wordCount && wordCount <= 10 && regions.length > 0) {
+      // If we have fewer regions than words, try to split longer ones
+      finalRegions = [...regions]
 
-      while (finalSegments.length < Math.min(wordCount, 10)) {
-        // Find longest segment
+      while (finalRegions.length < Math.min(wordCount, 10)) {
+        // Find longest region
         let maxDuration = 0
         let maxIndex = 0
 
-        for (let i = 0; i < finalSegments.length; i++) {
-          const duration = finalSegments[i].end - finalSegments[i].start
+        for (let i = 0; i < finalRegions.length; i++) {
+          const duration = finalRegions[i].end - finalRegions[i].start
           if (duration > maxDuration) {
             maxDuration = duration
             maxIndex = i
           }
         }
 
-        // Split it in half
-        const seg = finalSegments[maxIndex]
-        const mid = (seg.start + seg.end) / 2
+        // Only split if longer than 200ms
+        if (maxDuration < 0.2) break
 
-        finalSegments = [
-          ...finalSegments.slice(0, maxIndex),
-          { start: seg.start, end: mid },
-          { start: mid, end: seg.end },
-          ...finalSegments.slice(maxIndex + 1),
+        // Split it in half
+        const region = finalRegions[maxIndex]
+        const mid = (region.start + region.end) / 2
+
+        finalRegions = [
+          ...finalRegions.slice(0, maxIndex),
+          { start: region.start, end: mid },
+          { start: mid, end: region.end },
+          ...finalRegions.slice(maxIndex + 1),
         ]
       }
     }
 
-    // If no segments detected, fall back to word-based division
-    if (finalSegments.length === 0 || (finalSegments.length === 1 && wordCount > 1)) {
-      const duration = buffer.duration
-      const count = Math.min(10, Math.max(1, wordCount || 3))
-      const sliceLength = duration / count
-
-      finalSegments = []
-      for (let i = 0; i < count; i++) {
-        finalSegments.push({
-          start: i * sliceLength,
-          end: (i + 1) * sliceLength,
-        })
-      }
-    }
-
-    // Create samples from segments
-    const samples = finalSegments.map((seg, i) => ({
+    // Create samples from regions
+    const samples = finalRegions.map((region, i) => ({
       id: i,
-      start: seg.start,
-      end: seg.end - 0.01, // Small gap for visual separation
+      start: region.start,
+      end: region.end,
       pitch: 0,
       speed: 1,
       vol: 80,
@@ -244,8 +242,7 @@ export function useRecorder() {
       const recognition = new SpeechRecognition()
       recognition.continuous = true
       recognition.interimResults = true
-      // Use browser's default language for auto-detection
-      recognition.lang = ''
+      // Don't set lang - let browser use its default (supports user's system language)
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let finalTranscript = ''
@@ -265,10 +262,9 @@ export function useRecorder() {
       }
 
       recognition.onerror = (event) => {
-        console.warn('Speech recognition error:', event.error)
-        // Don't stop on 'no-speech' errors, just continue
+        // Silently handle errors - transcription is optional
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          console.warn('Recognition error, continuing without transcription')
+          console.warn('Speech recognition:', event.error)
         }
       }
 
