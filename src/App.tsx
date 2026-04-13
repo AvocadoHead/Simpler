@@ -24,16 +24,15 @@ const panelTransition = {
 
 function App() {
   const mode = useStore((s) => s.mode)
-  const selectedId = useStore((s) => s.selectedId)
+  const selectedIds = useStore((s) => s.selectedIds)
   const deleteSample = useStore((s) => s.deleteSample)
 
   // Initialize keyboard controls
   useKeyboard()
 
   const handleDelete = () => {
-    if (selectedId !== null) {
-      deleteSample(selectedId)
-    }
+    // Delete all selected samples
+    selectedIds.forEach((id) => deleteSample(id))
   }
 
   return (
@@ -80,9 +79,9 @@ function App() {
                   <button
                     className="btn btn-danger"
                     onClick={handleDelete}
-                    disabled={selectedId === null}
+                    disabled={selectedIds.length === 0}
                   >
-                    Delete Selected Sample
+                    Delete Selected{selectedIds.length > 1 ? ` (${selectedIds.length})` : ''}
                   </button>
                 </div>
 

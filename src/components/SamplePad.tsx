@@ -22,26 +22,31 @@ export function SamplePad({
 }: SamplePadProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const mode = useStore((s) => s.mode)
-  const selectedId = useStore((s) => s.selectedId)
+  const selectedIds = useStore((s) => s.selectedIds)
   const setSelectedId = useStore((s) => s.setSelectedId)
+  const toggleSelectedId = useStore((s) => s.toggleSelectedId)
   const setPlayingIndex = useStore((s) => s.setPlayingIndex)
   const { playSample, stopSample } = useAudioEngine()
   const isHeldRef = useRef(false)
 
   const color = COLORS[sample.id % COLORS.length]
-  const isSelected = selectedId === sample.id
+  const isSelected = selectedIds.includes(sample.id)
 
-  const startPlay = useCallback(() => {
+  const startPlay = useCallback((multiSelect = false) => {
     if (isHeldRef.current) return
     isHeldRef.current = true
-    setSelectedId(sample.id)
+    if (multiSelect) {
+      toggleSelectedId(sample.id)
+    } else {
+      setSelectedId(sample.id)
+    }
     setPlayingIndex(index)
     setIsPlaying(true)
     playSample(sample, () => {
       setIsPlaying(false)
       setPlayingIndex(null)
     })
-  }, [sample, index, setSelectedId, setPlayingIndex, playSample])
+  }, [sample, index, setSelectedId, toggleSelectedId, setPlayingIndex, playSample])
 
   const stopPlay = useCallback(() => {
     if (!isHeldRef.current) return
@@ -53,12 +58,12 @@ export function SamplePad({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    startPlay()
+    startPlay(e.shiftKey || e.metaKey || e.ctrlKey)
   }, [startPlay])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault()
-    startPlay()
+    startPlay(false) // No multi-select on touch, use Select All button
   }, [startPlay])
 
   // Global mouseup/touchend to catch release outside pad

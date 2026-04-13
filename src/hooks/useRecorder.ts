@@ -204,7 +204,7 @@ export function useRecorder() {
       pitch: 0,
       speed: 1,
       vol: 80,
-      phase: 0,
+      chop: 0,
       delay: 0,
       rev: 0,
     }))

@@ -4,7 +4,7 @@ import type { Mode, Sample } from '../types'
 interface State {
   mode: Mode
   samples: Sample[]
-  selectedId: number | null
+  selectedIds: number[]  // Multi-select support
   playingIndex: number | null  // Track which sample index is currently playing
   audioBuffer: AudioBuffer | null
   transcript: string
@@ -14,8 +14,12 @@ interface State {
   setSamples: (samples: Sample[]) => void
   addSample: (sample: Sample) => void
   updateSample: (id: number, updates: Partial<Sample>) => void
+  updateSelectedSamples: (updates: Partial<Sample>) => void  // Update all selected
   deleteSample: (id: number) => void
-  setSelectedId: (id: number | null) => void
+  setSelectedId: (id: number | null) => void  // Single select (clears others)
+  toggleSelectedId: (id: number) => void  // Add/remove from selection
+  selectAllSamples: () => void
+  clearSelection: () => void
   setPlayingIndex: (index: number | null) => void
   setAudioBuffer: (buffer: AudioBuffer | null) => void
   setTranscript: (transcript: string) => void
@@ -26,7 +30,7 @@ interface State {
 export const useStore = create<State>((set) => ({
   mode: 'record',
   samples: [],
-  selectedId: null,
+  selectedIds: [],
   playingIndex: null,
   audioBuffer: null,
   transcript: '',
@@ -46,12 +50,30 @@ export const useStore = create<State>((set) => ({
     ),
   })),
 
-  deleteSample: (id) => set((state) => ({
-    samples: state.samples.filter((s) => s.id !== id),
-    selectedId: state.selectedId === id ? null : state.selectedId,
+  updateSelectedSamples: (updates) => set((state) => ({
+    samples: state.samples.map((s) =>
+      state.selectedIds.includes(s.id) ? { ...s, ...updates } : s
+    ),
   })),
 
-  setSelectedId: (id) => set({ selectedId: id }),
+  deleteSample: (id) => set((state) => ({
+    samples: state.samples.filter((s) => s.id !== id),
+    selectedIds: state.selectedIds.filter((sid) => sid !== id),
+  })),
+
+  setSelectedId: (id) => set({ selectedIds: id !== null ? [id] : [] }),
+
+  toggleSelectedId: (id) => set((state) => ({
+    selectedIds: state.selectedIds.includes(id)
+      ? state.selectedIds.filter((sid) => sid !== id)
+      : [...state.selectedIds, id]
+  })),
+
+  selectAllSamples: () => set((state) => ({
+    selectedIds: state.samples.map((s) => s.id)
+  })),
+
+  clearSelection: () => set({ selectedIds: [] }),
 
   setPlayingIndex: (index) => set({ playingIndex: index }),
 

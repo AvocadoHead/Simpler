@@ -281,6 +281,60 @@ body {
   font-weight: 800;
 }
 
+.hero-transcript.editable {
+  pointer-events: all;
+  cursor: pointer;
+  opacity: 0.15;
+  filter: blur(1px);
+}
+
+.hero-transcript.editable:hover {
+  opacity: 0.25;
+  filter: blur(0);
+}
+
+.hero-transcript.editing {
+  pointer-events: all;
+  opacity: 1;
+  filter: blur(0);
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transcript-input {
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  color: #fff;
+  font-size: clamp(1rem, 3vw, 2rem);
+  font-weight: 600;
+  padding: 16px 24px;
+  width: min(90%, 800px);
+  text-align: center;
+  outline: none;
+}
+
+.transcript-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.edit-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.edit-icon {
+  font-size: 0.5em;
+  opacity: 0;
+  margin-left: 12px;
+  transition: opacity 0.2s;
+}
+
+.hero-transcript.editable:hover .edit-icon {
+  opacity: 0.5;
+}
+
 /* --- WAVEFORM --- */
 .canvas-container {
   position: relative;
@@ -435,6 +489,29 @@ body {
 input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
+}
+
+.select-all-row {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-select-all {
+  padding: 8px 16px;
+  font-size: 0.8rem;
+}
+
+.btn-select-all.selected {
+  background: rgba(77, 166, 255, 0.2);
+  border-color: var(--accent);
+}
+
+.multi-indicator {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* --- BUTTONS --- */

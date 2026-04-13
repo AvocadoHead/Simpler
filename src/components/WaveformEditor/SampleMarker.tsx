@@ -9,8 +9,9 @@ interface SampleMarkerProps {
 }
 
 export function SampleMarker({ sample, duration, containerWidth }: SampleMarkerProps) {
-  const selectedId = useStore((s) => s.selectedId)
+  const selectedIds = useStore((s) => s.selectedIds)
   const setSelectedId = useStore((s) => s.setSelectedId)
+  const toggleSelectedId = useStore((s) => s.toggleSelectedId)
   const updateSample = useStore((s) => s.updateSample)
 
   const [isDragging, setIsDragging] = useState(false)
@@ -22,7 +23,7 @@ export function SampleMarker({ sample, duration, containerWidth }: SampleMarkerP
   } | null>(null)
 
   const color = COLORS[sample.id % COLORS.length]
-  const isSelected = selectedId === sample.id
+  const isSelected = selectedIds.includes(sample.id)
 
   const left = (sample.start / duration) * 100
   const width = ((sample.end - sample.start) / duration) * 100
@@ -30,7 +31,11 @@ export function SampleMarker({ sample, duration, containerWidth }: SampleMarkerP
   const handleMouseDown = useCallback((e: React.MouseEvent, type: 'move' | 'left' | 'right') => {
     e.preventDefault()
     e.stopPropagation()
-    setSelectedId(sample.id)
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      toggleSelectedId(sample.id)
+    } else {
+      setSelectedId(sample.id)
+    }
     setIsDragging(true)
 
     dragStateRef.current = {
@@ -39,7 +44,7 @@ export function SampleMarker({ sample, duration, containerWidth }: SampleMarkerP
       initialStart: sample.start,
       initialEnd: sample.end,
     }
-  }, [sample.id, sample.start, sample.end, setSelectedId])
+  }, [sample.id, sample.start, sample.end, setSelectedId, toggleSelectedId])
 
   const handleTouchStart = useCallback((e: React.TouchEvent, type: 'move' | 'left' | 'right') => {
     e.stopPropagation()
