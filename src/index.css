@@ -3,7 +3,7 @@
 
 /* Dark theme (default) */
 :root,
-[data-theme="dark"] {
+html[data-theme="dark"] {
   --bg: #0b0d14;
   --bg-gradient: rgba(77, 166, 255, 0.08);
   --panel: rgba(20, 24, 34, 0.8);
@@ -17,21 +17,25 @@
   --anim: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   --overlay: rgba(0, 0, 0, 0.2);
+  --waveform: #4da6ff;
+  --waveform-bg: rgba(0, 0, 0, 0.3);
 }
 
 /* Light theme */
-[data-theme="light"] {
-  --bg: #f5f7fa;
-  --bg-gradient: rgba(77, 166, 255, 0.12);
-  --panel: rgba(255, 255, 255, 0.9);
+html[data-theme="light"] {
+  --bg: #f0f4f8;
+  --bg-gradient: rgba(37, 99, 235, 0.08);
+  --panel: rgba(255, 255, 255, 0.95);
   --panel-solid: #ffffff;
-  --border: rgba(0, 50, 100, 0.12);
+  --border: rgba(0, 50, 100, 0.15);
   --text: #1a1a2e;
-  --text-muted: #6b7280;
+  --text-muted: #64748b;
   --accent: #2563eb;
   --danger: #dc2626;
-  --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  --overlay: rgba(255, 255, 255, 0.5);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --overlay: rgba(255, 255, 255, 0.7);
+  --waveform: #1e40af;
+  --waveform-bg: rgba(0, 0, 0, 0.05);
 }
 
 * {
@@ -199,31 +203,40 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  padding: 30px;
 }
 
-.input-level-label {
-  color: var(--text-muted);
-  margin: 0;
+.audio-visualizer {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
 }
 
 .mic-hint {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
+  text-align: center;
+  max-width: 250px;
 }
 
 .btn-record {
-  width: 150px;
-  height: 150px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  font-size: 1.2rem;
+  font-size: 1rem;
   font-weight: bold;
   background: rgba(255, 77, 77, 0.1);
-  border: 2px solid var(--danger);
+  border: 3px solid var(--danger);
   color: var(--danger);
-  box-shadow: 0 0 30px rgba(255, 77, 77, 0.2);
+  box-shadow: 0 0 20px rgba(255, 77, 77, 0.15);
   cursor: pointer;
   transition: all 0.3s;
+}
+
+.btn-record:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(255, 77, 77, 0.3);
 }
 
 .btn-record.recording {
@@ -239,7 +252,7 @@ body {
   }
   to {
     transform: scale(1.05);
-    box-shadow: 0 0 50px var(--danger);
+    box-shadow: 0 0 40px var(--danger);
   }
 }
 
@@ -403,8 +416,9 @@ body {
   height: 100%;
   width: 100%;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--waveform-bg);
   overflow: hidden;
+  transition: background-color 0.3s ease;
 }
 
 .waveform-canvas {

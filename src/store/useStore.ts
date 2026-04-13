@@ -13,6 +13,7 @@ interface State {
   audioBuffer: AudioBuffer | null
   transcript: string
   isRecording: boolean
+  audioLevel: number  // Live audio input level (0-1)
 
   setMode: (mode: Mode) => void
   toggleTheme: () => void
@@ -29,6 +30,7 @@ interface State {
   setAudioBuffer: (buffer: AudioBuffer | null) => void
   setTranscript: (transcript: string) => void
   setIsRecording: (isRecording: boolean) => void
+  setAudioLevel: (level: number) => void
   swapSamples: (fromIndex: number, toIndex: number) => void
 }
 
@@ -36,9 +38,16 @@ interface State {
 const getInitialTheme = (): Theme => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('simpler-theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved)
+      return saved
+    }
     // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light'
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      document.documentElement.setAttribute('data-theme', 'light')
+      return 'light'
+    }
+    document.documentElement.setAttribute('data-theme', 'dark')
   }
   return 'dark'
 }
@@ -53,6 +62,7 @@ export const useStore = create<State>((set) => ({
   audioBuffer: null,
   transcript: '',
   isRecording: false,
+  audioLevel: 0,
 
   setMode: (mode) => set((state) => ({
     mode,
@@ -62,6 +72,7 @@ export const useStore = create<State>((set) => ({
   toggleTheme: () => set((state) => {
     const newTheme = state.theme === 'dark' ? 'light' : 'dark'
     localStorage.setItem('simpler-theme', newTheme)
+    document.documentElement.setAttribute('data-theme', newTheme)
     return { theme: newTheme }
   }),
 
@@ -109,6 +120,8 @@ export const useStore = create<State>((set) => ({
   setTranscript: (transcript) => set({ transcript }),
 
   setIsRecording: (isRecording) => set({ isRecording }),
+
+  setAudioLevel: (level) => set({ audioLevel: level }),
 
   swapSamples: (fromIndex, toIndex) => set((state) => {
     const newSamples = [...state.samples]

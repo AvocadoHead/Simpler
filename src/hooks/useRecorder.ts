@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useAudioEngine } from './useAudioEngine'
 
@@ -25,11 +25,49 @@ declare global {
 }
 
 // Detect iOS
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+const isIOS = typeof navigator !== 'undefined' && (
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+)
 
 // Detect mobile
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+const isMobile = typeof navigator !== 'undefined' &&
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+// Solfège syllables mapping - convert common misheard words
+const solfegeMap: Record<string, string> = {
+  // Do variations
+  'do': 'Do', 'doh': 'Do', 'doe': 'Do', 'though': 'Do', 'dough': 'Do',
+  'door': 'Do', 'don\'t': 'Do', 'go': 'Do',
+  // Re variations
+  're': 'Re', 'ray': 'Re', 'rey': 'Re', 'rain': 'Re', 'rate': 'Re',
+  'red': 'Re', 'rae': 'Re', 'way': 'Re',
+  // Mi variations
+  'mi': 'Mi', 'me': 'Mi', 'mee': 'Mi', 'meat': 'Mi', 'meet': 'Mi',
+  'meal': 'Mi', 'mean': 'Mi', 'knee': 'Mi',
+  // Fa variations
+  'fa': 'Fa', 'far': 'Fa', 'fah': 'Fa', 'fog': 'Fa', 'fall': 'Fa',
+  'for': 'Fa', 'four': 'Fa', 'spa': 'Fa',
+  // Sol variations
+  'sol': 'Sol', 'so': 'Sol', 'sew': 'Sol', 'soul': 'Sol', 'sole': 'Sol',
+  'sold': 'Sol', 'song': 'Sol', 'saw': 'Sol', 'show': 'Sol',
+  // La variations
+  'la': 'La', 'lah': 'La', 'law': 'La', 'lot': 'La', 'long': 'La',
+  'love': 'La', 'log': 'La', 'ma': 'La',
+  // Si/Ti variations
+  'si': 'Si', 'ti': 'Si', 'tea': 'Si', 'tee': 'Si', 'see': 'Si',
+  'sea': 'Si', 'she': 'Si', 'key': 'Si', 'tree': 'Si', 'be': 'Si',
+}
+
+// Convert transcript to solfège where possible
+function convertToSolfege(text: string): string {
+  const words = text.toLowerCase().split(/\s+/)
+  return words.map(word => {
+    // Remove punctuation
+    const clean = word.replace(/[.,!?]/g, '')
+    return solfegeMap[clean] || word
+  }).join(' ')
+}
 
 // Find sound regions (non-silent parts) in audio
 function findSoundRegions(
@@ -42,16 +80,15 @@ function findSoundRegions(
 ): Array<{ start: number; end: number }> {
   const {
     silenceThreshold = 0.015,
-    minSoundDuration = 0.05,  // 50ms minimum sound length
-    paddingMs = 10,           // 10ms padding around sounds
+    minSoundDuration = 0.05,
+    paddingMs = 10,
   } = options
 
   const data = buffer.getChannelData(0)
   const sampleRate = buffer.sampleRate
   const padding = paddingMs / 1000
 
-  // Find RMS energy in windows
-  const windowSize = Math.floor(0.005 * sampleRate) // 5ms windows for precision
+  const windowSize = Math.floor(0.005 * sampleRate)
   const energies: number[] = []
 
   for (let i = 0; i < data.length; i += windowSize) {
@@ -63,7 +100,6 @@ function findSoundRegions(
     energies.push(Math.sqrt(sum / (end - i)))
   }
 
-  // Find sound regions (non-silent)
   const soundRegions: Array<{ start: number; end: number }> = []
   let soundStart: number | null = null
 
@@ -84,7 +120,6 @@ function findSoundRegions(
     }
   }
 
-  // Handle sound at the end
   if (soundStart !== null) {
     const soundEnd = buffer.duration
     if (soundEnd - soundStart >= minSoundDuration) {
@@ -95,9 +130,8 @@ function findSoundRegions(
     }
   }
 
-  // Merge overlapping or very close regions
   const mergedRegions: Array<{ start: number; end: number }> = []
-  const mergeGap = 0.08 // Merge if gap < 80ms
+  const mergeGap = 0.08
 
   for (const region of soundRegions) {
     if (mergedRegions.length === 0) {
@@ -105,7 +139,6 @@ function findSoundRegions(
     } else {
       const last = mergedRegions[mergedRegions.length - 1]
       if (region.start - last.end < mergeGap) {
-        // Merge with previous
         last.end = region.end
       } else {
         mergedRegions.push(region)
@@ -122,6 +155,8 @@ export function useRecorder() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const transcriptRef = useRef<string>('')
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const audioDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
 
   const { resumeContext, getContext } = useAudioEngine()
   const setAudioBuffer = useStore((s) => s.setAudioBuffer)
@@ -129,28 +164,25 @@ export function useRecorder() {
   const setSamples = useStore((s) => s.setSamples)
   const setIsRecording = useStore((s) => s.setIsRecording)
   const setMode = useStore((s) => s.setMode)
+  const setAudioLevel = useStore((s) => s.setAudioLevel)
 
   const smartAutoSlice = useCallback((buffer: AudioBuffer, transcript: string) => {
     const words = transcript.trim().split(/\s+/).filter(Boolean)
     const wordCount = words.length
 
-    // Find actual sound regions (no silence included)
     let regions = findSoundRegions(buffer, {
       silenceThreshold: 0.012,
       minSoundDuration: 0.04,
       paddingMs: 8,
     })
 
-    // If no regions found, use the whole buffer
     if (regions.length === 0) {
       regions = [{ start: 0, end: buffer.duration }]
     }
 
-    // Limit to 10 samples max
     let finalRegions = regions
 
     if (regions.length > 10) {
-      // Merge smallest adjacent regions until we have 10
       while (finalRegions.length > 10) {
         let minGap = Infinity
         let minIndex = 0
@@ -163,7 +195,6 @@ export function useRecorder() {
           }
         }
 
-        // Merge regions at minIndex and minIndex + 1
         finalRegions = [
           ...finalRegions.slice(0, minIndex),
           { start: finalRegions[minIndex].start, end: finalRegions[minIndex + 1].end },
@@ -171,11 +202,9 @@ export function useRecorder() {
         ]
       }
     } else if (regions.length < wordCount && wordCount <= 10 && regions.length > 0) {
-      // If we have fewer regions than words, try to split longer ones
       finalRegions = [...regions]
 
       while (finalRegions.length < Math.min(wordCount, 10)) {
-        // Find longest region
         let maxDuration = 0
         let maxIndex = 0
 
@@ -187,10 +216,8 @@ export function useRecorder() {
           }
         }
 
-        // Only split if longer than 200ms
         if (maxDuration < 0.2) break
 
-        // Split it in half
         const region = finalRegions[maxIndex]
         const mid = (region.start + region.end) / 2
 
@@ -203,7 +230,6 @@ export function useRecorder() {
       }
     }
 
-    // Create samples from regions
     const samples = finalRegions.map((region, i) => ({
       id: i,
       start: region.start,
@@ -219,19 +245,33 @@ export function useRecorder() {
     setSamples(samples)
   }, [setSamples])
 
-  const startRecording = useCallback(async () => {
-    await resumeContext()
+  // Analyze audio levels for visualizer
+  const analyzeAudio = useCallback(() => {
+    if (!analyserRef.current || !audioDataRef.current) return 0
 
-    // Mobile-optimized audio constraints
-    const audioConstraints: MediaTrackConstraints = {
-      echoCancellation: !isMobile, // Disable on mobile to prevent feedback
-      noiseSuppression: !isMobile, // Disable on mobile to prevent processing artifacts
-      autoGainControl: false, // Disable to prevent pumping/feedback
+    analyserRef.current.getByteFrequencyData(audioDataRef.current)
+
+    // Calculate average level
+    let sum = 0
+    for (let i = 0; i < audioDataRef.current.length; i++) {
+      sum += audioDataRef.current[i]
     }
+    const average = sum / audioDataRef.current.length / 255
 
-    // On desktop, add sample rate
-    if (!isMobile) {
-      audioConstraints.sampleRate = 44100
+    return average
+  }, [])
+
+  const startRecording = useCallback(async () => {
+    // Resume audio context first
+    const ctx = await resumeContext()
+
+    // Small delay to let any system sounds finish
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    const audioConstraints: MediaTrackConstraints = {
+      echoCancellation: false, // Disable to prevent feedback
+      noiseSuppression: false,
+      autoGainControl: false,
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -239,14 +279,32 @@ export function useRecorder() {
     })
     streamRef.current = stream
 
+    // Set up audio analyser for live visualization
+    const source = ctx.createMediaStreamSource(stream)
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 256
+    analyser.smoothingTimeConstant = 0.8
+    source.connect(analyser)
+    analyserRef.current = analyser
+    audioDataRef.current = new Uint8Array(analyser.frequencyBinCount)
+
+    // Start level monitoring
+    const updateLevel = () => {
+      if (recorderRef.current?.state === 'recording') {
+        const level = analyzeAudio()
+        setAudioLevel(level)
+        requestAnimationFrame(updateLevel)
+      } else {
+        setAudioLevel(0)
+      }
+    }
+
     // Determine best mime type
     let mimeType = 'audio/webm'
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
       mimeType = 'audio/webm;codecs=opus'
     } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
       mimeType = 'audio/mp4'
-    } else if (MediaRecorder.isTypeSupported('audio/wav')) {
-      mimeType = 'audio/wav'
     }
 
     const recorder = new MediaRecorder(stream, { mimeType })
@@ -254,17 +312,15 @@ export function useRecorder() {
     chunksRef.current = []
     transcriptRef.current = ''
 
-    // Setup speech recognition (not supported on iOS Safari)
+    // Setup speech recognition - ENGLISH ONLY with solfège conversion
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+
     if (SpeechRecognition && !isIOS) {
       try {
         const recognition = new SpeechRecognition()
         recognition.continuous = true
         recognition.interimResults = true
-
-        // Try to detect Hebrew or use browser default
-        // If the browser/system is set to Hebrew, it should auto-detect
-        // We don't force a language to support multilingual input
+        recognition.lang = 'en-US' // Force English
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
           let finalTranscript = ''
@@ -279,24 +335,24 @@ export function useRecorder() {
             }
           }
 
-          transcriptRef.current = (finalTranscript + interimTranscript).trim()
+          // Convert to solfège
+          const rawText = (finalTranscript + interimTranscript).trim()
+          transcriptRef.current = convertToSolfege(rawText)
           setTranscript(transcriptRef.current)
         }
 
         recognition.onerror = (event) => {
-          // Silently handle errors - transcription is optional
           if (event.error !== 'no-speech' && event.error !== 'aborted') {
             console.warn('Speech recognition:', event.error)
           }
         }
 
-        // Restart recognition if it ends prematurely
         recognition.onend = () => {
           if (recorderRef.current?.state === 'recording') {
             try {
               recognition.start()
             } catch {
-              // Already started or can't restart
+              // Already started
             }
           }
         }
@@ -305,14 +361,12 @@ export function useRecorder() {
         recognition.start()
       } catch (e) {
         console.warn('Could not start speech recognition:', e)
-        // Show fallback message for iOS
-        if (isIOS) {
-          setTranscript('(Transcription not available on iOS)')
-        }
       }
-    } else if (isIOS) {
-      // iOS doesn't support Web Speech API
-      setTranscript('(Tap to edit text)')
+    }
+
+    // Set initial transcript for mobile/iOS
+    if (isIOS || !SpeechRecognition) {
+      setTranscript('Tap to add lyrics')
     }
 
     recorder.ondataavailable = (e) => {
@@ -331,12 +385,17 @@ export function useRecorder() {
         }
       }
 
+      // Clean up analyser
+      analyserRef.current = null
+      audioDataRef.current = null
+      setAudioLevel(0)
+
       const blob = new Blob(chunksRef.current, { type: mimeType })
-      const ctx = getContext()
+      const audioCtx = getContext()
 
       try {
         const arrayBuffer = await blob.arrayBuffer()
-        const buffer = await ctx.decodeAudioData(arrayBuffer)
+        const buffer = await audioCtx.decodeAudioData(arrayBuffer)
 
         setAudioBuffer(buffer)
         smartAutoSlice(buffer, transcriptRef.current)
@@ -353,17 +412,13 @@ export function useRecorder() {
       }
     }
 
-    // On mobile, don't use timeslice to avoid beeping/feedback issues
-    // Collect all data at the end instead
-    if (isMobile) {
-      recorder.start()
-    } else {
-      // On desktop, use timeslice for longer recordings
-      recorder.start(1000)
-    }
-
+    // Start recording (no timeslice to avoid beeping)
+    recorder.start()
     setIsRecording(true)
-  }, [resumeContext, getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice])
+
+    // Start level monitoring
+    requestAnimationFrame(updateLevel)
+  }, [resumeContext, getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice, analyzeAudio, setAudioLevel])
 
   const stopRecording = useCallback(() => {
     if (recorderRef.current && recorderRef.current.state === 'recording') {
@@ -376,25 +431,22 @@ export function useRecorder() {
         // Already stopped
       }
     }
+    setAudioLevel(0)
     setIsRecording(false)
-  }, [setIsRecording])
+  }, [setIsRecording, setAudioLevel])
 
-  const isSupported = useCallback(() => {
-    // Check if MediaRecorder is supported (for recording)
-    return typeof MediaRecorder !== 'undefined'
-  }, [])
-
-  const isTranscriptionSupported = useCallback(() => {
-    // iOS Safari doesn't support Web Speech API
-    if (isIOS) return false
-    return !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
   }, [])
 
   return {
     startRecording,
     stopRecording,
-    isRecordingSupported: isSupported,
-    isTranscriptionSupported,
     isIOS,
     isMobile,
   }

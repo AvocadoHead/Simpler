@@ -4,6 +4,7 @@ import { useStore } from '../../store/useStore'
 export function Waveform() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const audioBuffer = useStore((s) => s.audioBuffer)
+  const theme = useStore((s) => s.theme)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -23,7 +24,12 @@ export function Waveform() {
       const data = audioBuffer.getChannelData(0)
       const step = Math.ceil(data.length / width)
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
+      // Use theme-appropriate color
+      const waveformColor = theme === 'dark'
+        ? 'rgba(77, 166, 255, 0.5)'
+        : 'rgba(30, 64, 175, 0.6)'
+
+      ctx.fillStyle = waveformColor
 
       for (let i = 0; i < width; i++) {
         let min = 1
@@ -47,7 +53,7 @@ export function Waveform() {
     resizeObserver.observe(canvas)
 
     return () => resizeObserver.disconnect()
-  }, [audioBuffer])
+  }, [audioBuffer, theme])
 
   return <canvas ref={canvasRef} className="waveform-canvas" />
 }
