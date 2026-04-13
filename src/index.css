@@ -1,6 +1,13 @@
-:root {
+/* Import Heebo font for Hebrew support */
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap');
+
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
   --bg: #0b0d14;
+  --bg-gradient: rgba(77, 166, 255, 0.08);
   --panel: rgba(20, 24, 34, 0.8);
+  --panel-solid: #141822;
   --border: rgba(105, 161, 255, 0.15);
   --text: #ffffff;
   --text-muted: #6b768c;
@@ -8,11 +15,28 @@
   --danger: #ff4d4d;
   --radius: 16px;
   --anim: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --overlay: rgba(0, 0, 0, 0.2);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg: #f5f7fa;
+  --bg-gradient: rgba(77, 166, 255, 0.12);
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-solid: #ffffff;
+  --border: rgba(0, 50, 100, 0.12);
+  --text: #1a1a2e;
+  --text-muted: #6b7280;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --overlay: rgba(255, 255, 255, 0.5);
 }
 
 * {
   box-sizing: border-box;
-  font-family: system-ui, sans-serif;
+  font-family: 'Heebo', system-ui, -apple-system, sans-serif;
   user-select: none;
 }
 
@@ -24,9 +48,10 @@ body {
   overflow: hidden;
   background-image: radial-gradient(
     circle at 50% 0%,
-    rgba(77, 166, 255, 0.08) 0%,
+    var(--bg-gradient) 0%,
     transparent 50%
   );
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -46,8 +71,9 @@ body {
   align-items: center;
   padding: 16px 24px;
   border-bottom: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--overlay);
   z-index: 100;
+  transition: background-color 0.3s ease;
 }
 
 .brand {
@@ -60,6 +86,26 @@ body {
 .nav-tools {
   display: flex;
   gap: 12px;
+  align-items: center;
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+  transform: scale(1.1);
 }
 
 .mock-auth {
@@ -74,8 +120,8 @@ body {
 }
 
 .mock-auth:hover {
-  color: #fff;
-  border-color: #fff;
+  color: var(--text);
+  border-color: var(--text);
 }
 
 /* --- MODE TABS --- */
@@ -122,6 +168,21 @@ body {
   justify-content: center;
   padding: 20px;
   margin-top: 50px;
+  overflow: hidden;
+}
+
+/* Mode container for slide animations */
+.mode-container {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.edit-container {
+  width: 100%;
 }
 
 .panel {
@@ -130,6 +191,7 @@ body {
   border-radius: var(--radius);
   padding: 20px;
   backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* --- RECORD PANEL --- */

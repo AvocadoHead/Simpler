@@ -1,7 +1,7 @@
 import { useStore } from '../store/useStore'
 import type { Sample } from '../types'
 
-type ParamKey = 'pitch' | 'speed' | 'chop' | 'vol' | 'delay' | 'rev'
+type ParamKey = 'pitch' | 'speed' | 'phase' | 'vol' | 'delay' | 'rev'
 
 interface SliderConfig {
   key: ParamKey
@@ -16,7 +16,7 @@ const sliders: SliderConfig[] = [
   { key: 'pitch', label: 'Pitch', min: -12, max: 12, step: 1, defaultValue: 0 },
   { key: 'speed', label: 'Speed', min: 0.5, max: 2, step: 0.1, defaultValue: 1 },
   { key: 'vol', label: 'Volume', min: 0, max: 100, step: 1, defaultValue: 80 },
-  { key: 'chop', label: 'Chop', min: 0, max: 100, step: 1, defaultValue: 0 },
+  { key: 'phase', label: 'Phase', min: 0, max: 100, step: 1, defaultValue: 0 },
   { key: 'delay', label: 'Delay', min: 0, max: 100, step: 1, defaultValue: 0 },
   { key: 'rev', label: 'Reverb', min: 0, max: 100, step: 1, defaultValue: 0 },
 ]
@@ -24,7 +24,7 @@ const sliders: SliderConfig[] = [
 const defaultValues: Record<ParamKey, number> = {
   pitch: 0,
   speed: 1,
-  chop: 0,
+  phase: 0,
   vol: 80,
   delay: 0,
   rev: 0,

@@ -24,6 +24,13 @@ declare global {
   }
 }
 
+// Detect iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+// Detect mobile
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
 // Find sound regions (non-silent parts) in audio
 function findSoundRegions(
   buffer: AudioBuffer,
@@ -204,7 +211,7 @@ export function useRecorder() {
       pitch: 0,
       speed: 1,
       vol: 80,
-      chop: 0,
+      phase: 0,
       delay: 0,
       rev: 0,
     }))
@@ -215,76 +222,97 @@ export function useRecorder() {
   const startRecording = useCallback(async () => {
     await resumeContext()
 
+    // Mobile-optimized audio constraints
+    const audioConstraints: MediaTrackConstraints = {
+      echoCancellation: !isMobile, // Disable on mobile to prevent feedback
+      noiseSuppression: !isMobile, // Disable on mobile to prevent processing artifacts
+      autoGainControl: false, // Disable to prevent pumping/feedback
+    }
+
+    // On desktop, add sample rate
+    if (!isMobile) {
+      audioConstraints.sampleRate = 44100
+    }
+
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        sampleRate: 44100,
-      }
+      audio: audioConstraints
     })
     streamRef.current = stream
 
-    // Use audio/webm for better quality and longer recordings
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus'
-      : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : 'audio/mp4'
+    // Determine best mime type
+    let mimeType = 'audio/webm'
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      mimeType = 'audio/webm;codecs=opus'
+    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+      mimeType = 'audio/mp4'
+    } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+      mimeType = 'audio/wav'
+    }
 
     const recorder = new MediaRecorder(stream, { mimeType })
     recorderRef.current = recorder
     chunksRef.current = []
     transcriptRef.current = ''
 
-    // Setup speech recognition
+    // Setup speech recognition (not supported on iOS Safari)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = true
-      // Don't set lang - let browser use its default (supports user's system language)
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTranscript = ''
-        let interimTranscript = ''
-
-        for (let i = 0; i < event.results.length; i++) {
-          const result = event.results[i]
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript + ' '
-          } else {
-            interimTranscript += result[0].transcript
-          }
-        }
-
-        transcriptRef.current = (finalTranscript + interimTranscript).trim()
-        setTranscript(transcriptRef.current)
-      }
-
-      recognition.onerror = (event) => {
-        // Silently handle errors - transcription is optional
-        if (event.error !== 'no-speech' && event.error !== 'aborted') {
-          console.warn('Speech recognition:', event.error)
-        }
-      }
-
-      // Restart recognition if it ends prematurely
-      recognition.onend = () => {
-        if (recorderRef.current?.state === 'recording') {
-          try {
-            recognition.start()
-          } catch {
-            // Already started or can't restart
-          }
-        }
-      }
-
-      recognitionRef.current = recognition
+    if (SpeechRecognition && !isIOS) {
       try {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+
+        // Try to detect Hebrew or use browser default
+        // If the browser/system is set to Hebrew, it should auto-detect
+        // We don't force a language to support multilingual input
+
+        recognition.onresult = (event: SpeechRecognitionEvent) => {
+          let finalTranscript = ''
+          let interimTranscript = ''
+
+          for (let i = 0; i < event.results.length; i++) {
+            const result = event.results[i]
+            if (result.isFinal) {
+              finalTranscript += result[0].transcript + ' '
+            } else {
+              interimTranscript += result[0].transcript
+            }
+          }
+
+          transcriptRef.current = (finalTranscript + interimTranscript).trim()
+          setTranscript(transcriptRef.current)
+        }
+
+        recognition.onerror = (event) => {
+          // Silently handle errors - transcription is optional
+          if (event.error !== 'no-speech' && event.error !== 'aborted') {
+            console.warn('Speech recognition:', event.error)
+          }
+        }
+
+        // Restart recognition if it ends prematurely
+        recognition.onend = () => {
+          if (recorderRef.current?.state === 'recording') {
+            try {
+              recognition.start()
+            } catch {
+              // Already started or can't restart
+            }
+          }
+        }
+
+        recognitionRef.current = recognition
         recognition.start()
       } catch (e) {
         console.warn('Could not start speech recognition:', e)
+        // Show fallback message for iOS
+        if (isIOS) {
+          setTranscript('(Transcription not available on iOS)')
+        }
       }
+    } else if (isIOS) {
+      // iOS doesn't support Web Speech API
+      setTranscript('(Tap to edit text)')
     }
 
     recorder.ondataavailable = (e) => {
@@ -325,8 +353,15 @@ export function useRecorder() {
       }
     }
 
-    // Request data every 1 second for longer recordings
-    recorder.start(1000)
+    // On mobile, don't use timeslice to avoid beeping/feedback issues
+    // Collect all data at the end instead
+    if (isMobile) {
+      recorder.start()
+    } else {
+      // On desktop, use timeslice for longer recordings
+      recorder.start(1000)
+    }
+
     setIsRecording(true)
   }, [resumeContext, getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice])
 
@@ -345,12 +380,22 @@ export function useRecorder() {
   }, [setIsRecording])
 
   const isSupported = useCallback(() => {
+    // Check if MediaRecorder is supported (for recording)
+    return typeof MediaRecorder !== 'undefined'
+  }, [])
+
+  const isTranscriptionSupported = useCallback(() => {
+    // iOS Safari doesn't support Web Speech API
+    if (isIOS) return false
     return !!(window.SpeechRecognition || window.webkitSpeechRecognition)
   }, [])
 
   return {
     startRecording,
     stopRecording,
-    isTranscriptionSupported: isSupported,
+    isRecordingSupported: isSupported,
+    isTranscriptionSupported,
+    isIOS,
+    isMobile,
   }
 }

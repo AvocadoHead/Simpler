@@ -1,8 +1,12 @@
 import { create } from 'zustand'
 import type { Mode, Sample } from '../types'
 
+type Theme = 'dark' | 'light'
+
 interface State {
   mode: Mode
+  previousMode: Mode | null
+  theme: Theme
   samples: Sample[]
   selectedIds: number[]  // Multi-select support
   playingIndex: number | null  // Track which sample index is currently playing
@@ -11,6 +15,7 @@ interface State {
   isRecording: boolean
 
   setMode: (mode: Mode) => void
+  toggleTheme: () => void
   setSamples: (samples: Sample[]) => void
   addSample: (sample: Sample) => void
   updateSample: (id: number, updates: Partial<Sample>) => void
@@ -27,8 +32,21 @@ interface State {
   swapSamples: (fromIndex: number, toIndex: number) => void
 }
 
+// Check for saved theme preference
+const getInitialTheme = (): Theme => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('simpler-theme')
+    if (saved === 'light' || saved === 'dark') return saved
+    // Check system preference
+    if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light'
+  }
+  return 'dark'
+}
+
 export const useStore = create<State>((set) => ({
   mode: 'record',
+  previousMode: null,
+  theme: getInitialTheme(),
   samples: [],
   selectedIds: [],
   playingIndex: null,
@@ -36,7 +54,16 @@ export const useStore = create<State>((set) => ({
   transcript: '',
   isRecording: false,
 
-  setMode: (mode) => set({ mode }),
+  setMode: (mode) => set((state) => ({
+    mode,
+    previousMode: state.mode,
+  })),
+
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('simpler-theme', newTheme)
+    return { theme: newTheme }
+  }),
 
   setSamples: (samples) => set({ samples }),
 

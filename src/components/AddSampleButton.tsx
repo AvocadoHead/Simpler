@@ -37,7 +37,7 @@ export function AddSampleButton() {
       pitch: 0,
       speed: 1,
       vol: 80,
-      chop: 0,
+      phase: 0,
       delay: 0,
       rev: 0,
     })

@@ -139,32 +139,6 @@ export function useAudioEngine() {
     gainNode.gain.setValueAtTime(0, ctx.currentTime)
     gainNode.gain.linearRampToValueAtTime(sample.vol / 100, ctx.currentTime + 0.01)
 
-    // Square wave LFO for chop effect
-    let lfo: OscillatorNode | undefined
-    let lfoGain: GainNode | undefined
-    let chopGain: GainNode | undefined
-
-    if (sample.chop > 0) {
-      // LFO frequency: 1Hz to 20Hz based on chop value
-      const lfoFreq = 1 + (sample.chop / 100) * 19
-
-      lfo = ctx.createOscillator()
-      lfo.type = 'square'
-      lfo.frequency.value = lfoFreq
-
-      // LFO gain controls modulation depth (0.5 = full on/off)
-      lfoGain = ctx.createGain()
-      lfoGain.gain.value = 0.5
-
-      // Chop gain node - LFO modulates this
-      chopGain = ctx.createGain()
-      chopGain.gain.value = 0.5 // Base value (LFO adds/subtracts 0.5)
-
-      lfo.connect(lfoGain)
-      lfoGain.connect(chopGain.gain)
-      lfo.start()
-    }
-
     // Delay setup
     let delayNode: DelayNode | undefined
     let feedbackGain: GainNode | undefined
@@ -200,25 +174,18 @@ export function useAudioEngine() {
     }
 
     // Build audio graph
-    // Source -> gainNode -> [chopGain] -> [delay] -> dryGain -> destination
-    //                                  -> [reverb] -> destination
-
-    // Determine the node after gainNode (either chopGain or directly to effects)
-    const connectFrom = chopGain ? chopGain : gainNode
-
-    if (chopGain) {
-      gainNode.connect(chopGain)
-    }
+    // Source -> gainNode -> [delay] -> dryGain -> destination
+    //                    -> [reverb] -> destination
 
     if (hasDelay && delayNode && feedbackGain && delayWetGain) {
-      connectFrom.connect(delayNode)
+      gainNode.connect(delayNode)
       delayNode.connect(feedbackGain)
       feedbackGain.connect(delayNode) // Feedback loop
       delayNode.connect(delayWetGain)
       delayWetGain.connect(dryGain)
-      connectFrom.connect(dryGain)
+      gainNode.connect(dryGain)
     } else {
-      connectFrom.connect(dryGain)
+      gainNode.connect(dryGain)
     }
 
     if (hasReverb && convolver && reverbWetGain) {
@@ -230,9 +197,11 @@ export function useAudioEngine() {
       dryGain.connect(ctx.destination)
     }
 
-    // Sample timing
-    const startOffset = sample.start
-    const playDuration = sample.end - sample.start
+    // Sample timing with phase offset
+    const clipLength = sample.end - sample.start
+    const phaseOffset = clipLength * (sample.phase / 100)
+    const startOffset = sample.start + phaseOffset
+    const playDuration = clipLength - phaseOffset
 
     // Use granular synthesis for independent pitch/speed
     const needsGranular = sample.pitch !== 0 || sample.speed !== 1
@@ -287,8 +256,6 @@ export function useAudioEngine() {
       feedbackGain,
       grainSources,
       stopGrains,
-      lfo,
-      lfoGain,
     })
   }, [audioBuffer, getContext, ensureReverb])
 
@@ -319,16 +286,12 @@ export function useAudioEngine() {
         active.source?.stop()
       } catch { /* already stopped */ }
       try {
-        active.lfo?.stop()
-      } catch { /* already stopped */ }
-      try {
         active.gainNode.disconnect()
         active.dryGain?.disconnect()
         active.wetGain?.disconnect()
         active.convolver?.disconnect()
         active.delayNode?.disconnect()
         active.feedbackGain?.disconnect()
-        active.lfoGain?.disconnect()
       } catch { /* already disconnected */ }
     }, stopDelay)
 
@@ -345,14 +308,12 @@ export function useAudioEngine() {
         active.stopGrains?.()
         try {
           active.source?.stop()
-          active.lfo?.stop()
           active.gainNode.disconnect()
           active.dryGain?.disconnect()
           active.wetGain?.disconnect()
           active.convolver?.disconnect()
           active.delayNode?.disconnect()
           active.feedbackGain?.disconnect()
-          active.lfoGain?.disconnect()
         } catch { /* already stopped/disconnected */ }
       })
       activeSourcesRef.current.clear()

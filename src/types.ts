@@ -7,7 +7,7 @@ export interface Sample {
   pitch: number   // Semitones (-12 to +12) - independent of speed
   speed: number   // Playback speed (0.5x to 2x) - independent of pitch
   vol: number     // Volume (0-100)
-  chop: number    // Square wave LFO rate (0=off, 1-100 = 1Hz to 20Hz)
+  phase: number   // Start offset within sample (0-100%)
   delay: number   // Delay/echo amount (0-100)
   rev: number     // Reverb amount (0-100)
 }
@@ -23,6 +23,4 @@ export interface ActiveSource {
   feedbackGain?: GainNode
   grainSources?: AudioBufferSourceNode[]
   stopGrains?: () => void
-  lfo?: OscillatorNode
-  lfoGain?: GainNode
 }

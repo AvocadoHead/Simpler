@@ -10,22 +10,49 @@ import { ControlSliders } from './components/ControlSliders'
 import { HeroTranscript } from './components/HeroTranscript'
 import { AddSampleButton } from './components/AddSampleButton'
 
-const panelVariants = {
-  initial: { opacity: 0, scale: 0.95, y: 20 },
-  animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.95, y: 20 },
+// Slide animations for mode transitions
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? '100%' : '-100%',
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? '100%' : '-100%',
+    opacity: 0,
+  }),
 }
 
-const panelTransition = {
-  type: 'spring',
-  stiffness: 300,
-  damping: 30,
+const slideTransition = {
+  x: { type: 'spring', stiffness: 300, damping: 30 },
+  opacity: { duration: 0.2 },
 }
+
+// Fade up animation for panels within a mode
+const fadeUpVariants = {
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+}
+
+const fadeTransition = {
+  type: 'spring',
+  stiffness: 400,
+  damping: 35,
+}
+
+// Map modes to numeric values for direction calculation
+const modeOrder = { record: 0, edit: 1, play: 2 }
 
 function App() {
   const mode = useStore((s) => s.mode)
+  const previousMode = useStore((s) => s.previousMode)
   const selectedIds = useStore((s) => s.selectedIds)
   const deleteSample = useStore((s) => s.deleteSample)
+  const theme = useStore((s) => s.theme)
 
   // Initialize keyboard controls
   useKeyboard()
@@ -35,40 +62,59 @@ function App() {
     selectedIds.forEach((id) => deleteSample(id))
   }
 
+  // Calculate slide direction based on mode change
+  const direction = modeOrder[mode] - modeOrder[previousMode || 'record']
+
   return (
-    <div className={`app mode-${mode}`}>
+    <div className={`app mode-${mode}`} data-theme={theme}>
       <TopNav />
       <ModeTabs />
       <HeroTranscript />
 
       <div className="workspace">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" custom={direction}>
           {mode === 'record' && (
-            <RecordPanel key="record" />
+            <motion.div
+              key="record"
+              className="mode-container"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+            >
+              <RecordPanel />
+            </motion.div>
           )}
 
           {mode === 'edit' && (
-            <>
+            <motion.div
+              key="edit"
+              className="mode-container edit-container"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={slideTransition}
+            >
               <motion.div
-                key="edit-wave"
                 className="panel edit-wave-panel"
-                variants={panelVariants}
+                variants={fadeUpVariants}
                 initial="initial"
                 animate="animate"
-                exit="exit"
-                transition={panelTransition}
+                transition={fadeTransition}
               >
                 <WaveformEditor />
               </motion.div>
 
               <motion.div
-                key="edit-tools"
                 className="panel edit-tools-panel"
-                variants={panelVariants}
+                variants={fadeUpVariants}
                 initial="initial"
                 animate="animate"
-                exit="exit"
-                transition={{ ...panelTransition, delay: 0.1 }}
+                transition={{ ...fadeTransition, delay: 0.08 }}
               >
                 <div className="tools-left">
                   <label className="sequencer-label">
@@ -89,20 +135,29 @@ function App() {
 
                 <ControlSliders />
               </motion.div>
-            </>
+            </motion.div>
           )}
 
           {mode === 'play' && (
             <motion.div
               key="play"
-              className="panel play-panel"
-              variants={panelVariants}
-              initial="initial"
-              animate="animate"
+              className="mode-container"
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
               exit="exit"
-              transition={panelTransition}
+              transition={slideTransition}
             >
-              <SampleGrid isEditMode={false} />
+              <motion.div
+                className="panel play-panel"
+                variants={fadeUpVariants}
+                initial="initial"
+                animate="animate"
+                transition={fadeTransition}
+              >
+                <SampleGrid isEditMode={false} />
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
