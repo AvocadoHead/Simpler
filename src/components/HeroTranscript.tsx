@@ -11,12 +11,13 @@ export function HeroTranscript() {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
 
-  // Show different content based on state
+  // Only show transcript if we have one, or "Listening..." while recording
   const displayText = isRecording
     ? transcript || 'Listening...'
-    : transcript || 'AWAITING AUDIO'
+    : transcript
 
-  const words = displayText.trim().split(/\s+/).filter(Boolean)
+  // Don't render anything if no transcript and not recording
+  const words = displayText ? displayText.trim().split(/\s+/).filter(Boolean) : []
 
   // Get color for the playing word
   const playingColor = playingIndex !== null && samples[playingIndex]
