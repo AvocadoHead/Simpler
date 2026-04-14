@@ -367,6 +367,17 @@ body {
   filter: blur(0);
 }
 
+.hero-transcript.empty {
+  opacity: 0.3;
+  filter: blur(0);
+}
+
+.tap-hint {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
 .hero-transcript.editing {
   pointer-events: all;
   opacity: 1;
@@ -591,9 +602,9 @@ input[type='range'] {
 
 /* --- BUTTONS --- */
 .btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--panel);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text);
   padding: 12px 24px;
   border-radius: 8px;
   cursor: pointer;

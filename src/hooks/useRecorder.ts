@@ -245,7 +245,7 @@ export function useRecorder() {
   const startRecording = useCallback(async () => {
     // Set recording state and transcript FIRST for immediate UI feedback
     setIsRecording(true)
-    setTranscript('Listening...')
+    setTranscript(isMobile ? '' : 'Listening...')
     transcriptRef.current = ''
 
     // Get microphone - use autoGainControl on mobile for better levels
@@ -274,10 +274,10 @@ export function useRecorder() {
     recorderRef.current = recorder
     chunksRef.current = []
 
-    // Setup speech recognition
+    // Setup speech recognition - DESKTOP ONLY (mobile has permission conflicts)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
-    if (SpeechRecognition && !isIOS) {
+    if (SpeechRecognition && !isMobile) {
       try {
         const recognition = new SpeechRecognition()
         recognition.continuous = true

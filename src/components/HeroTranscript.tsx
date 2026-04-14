@@ -17,7 +17,6 @@ export function HeroTranscript() {
     ? transcript || 'Listening...'
     : isPlaceholder ? '' : transcript
 
-  // Don't render anything if no real transcript
   const words = displayText ? displayText.trim().split(/\s+/).filter(Boolean) : []
 
   // Get color for the playing word
@@ -25,12 +24,15 @@ export function HeroTranscript() {
     ? COLORS[samples[playingIndex].id % COLORS.length]
     : null
 
+  // Allow editing in edit mode (with or without existing transcript)
+  const canEdit = mode === 'edit'
+
   const startEditing = useCallback(() => {
-    if (mode === 'edit' && transcript) {
-      setEditValue(transcript)
+    if (canEdit) {
+      setEditValue(transcript || '')
       setIsEditing(true)
     }
-  }, [mode, transcript])
+  }, [canEdit, transcript])
 
   const saveEdit = useCallback(() => {
     setTranscript(editValue)
@@ -61,18 +63,29 @@ export function HeroTranscript() {
           onKeyDown={handleKeyDown}
           onBlur={saveEdit}
           autoFocus
-          placeholder="Type syllables separated by spaces..."
+          placeholder="Type lyrics (e.g. Do Re Mi Fa Sol La Si)"
         />
-        <span className="edit-hint">Press Enter to save, Esc to cancel</span>
+        <span className="edit-hint">Enter to save · Esc to cancel</span>
+      </div>
+    )
+  }
+
+  // In edit mode with no transcript, show tap hint
+  if (mode === 'edit' && words.length === 0) {
+    return (
+      <div
+        className="hero-transcript editable empty"
+        onClick={startEditing}
+      >
+        <span className="tap-hint">Tap to add lyrics</span>
       </div>
     )
   }
 
   return (
     <div
-      className={`hero-transcript ${mode === 'play' ? 'visible' : ''} ${isRecording ? 'recording' : ''} ${mode === 'edit' && transcript ? 'editable' : ''}`}
+      className={`hero-transcript ${mode === 'play' ? 'visible' : ''} ${isRecording ? 'recording' : ''} ${canEdit && transcript ? 'editable' : ''}`}
       onClick={startEditing}
-      title={mode === 'edit' && transcript ? 'Click to edit transcript' : undefined}
     >
       {words.map((word, i) => {
         const isLit = mode === 'play' && playingIndex === i
@@ -89,9 +102,6 @@ export function HeroTranscript() {
           </span>
         )
       })}
-      {mode === 'edit' && transcript && (
-        <span className="edit-icon" title="Click to edit">&#9998;</span>
-      )}
     </div>
   )
 }
