@@ -269,6 +269,9 @@ export function useRecorder() {
     chunksRef.current = []
     transcriptRef.current = ''
 
+    // Show listening feedback immediately
+    setTranscript('Listening...')
+
     // Setup speech recognition - works on desktop and Android, not iOS
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
@@ -318,10 +321,6 @@ export function useRecorder() {
       }
     }
 
-    // On iOS only, set empty transcript (no speech recognition support)
-    if (isIOS) {
-      setTranscript('')
-    }
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) {

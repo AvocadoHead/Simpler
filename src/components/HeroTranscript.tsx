@@ -11,12 +11,13 @@ export function HeroTranscript() {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
 
-  // Only show transcript if we have one, or "Listening..." while recording
+  // Show transcript, but hide "Listening..." placeholder when not recording
+  const isPlaceholder = transcript === 'Listening...'
   const displayText = isRecording
     ? transcript || 'Listening...'
-    : transcript
+    : isPlaceholder ? '' : transcript
 
-  // Don't render anything if no transcript and not recording
+  // Don't render anything if no real transcript
   const words = displayText ? displayText.trim().split(/\s+/).filter(Boolean) : []
 
   // Get color for the playing word
