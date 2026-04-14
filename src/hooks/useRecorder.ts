@@ -38,32 +38,27 @@ const isMobile = typeof navigator !== 'undefined' &&
 const solfegeMap: Record<string, string> = {
   // Do variations
   'do': 'Do', 'doh': 'Do', 'doe': 'Do', 'though': 'Do', 'dough': 'Do',
-  'door': 'Do', 'don\'t': 'Do', 'go': 'Do',
+  'door': 'Do', 'go': 'Do',
   // Re variations
-  're': 'Re', 'ray': 'Re', 'rey': 'Re', 'rain': 'Re', 'rate': 'Re',
-  'red': 'Re', 'rae': 'Re', 'way': 'Re',
+  're': 'Re', 'ray': 'Re', 'rey': 'Re', 'rain': 'Re', 'way': 'Re',
   // Mi variations
-  'mi': 'Mi', 'me': 'Mi', 'mee': 'Mi', 'meat': 'Mi', 'meet': 'Mi',
-  'meal': 'Mi', 'mean': 'Mi', 'knee': 'Mi',
+  'mi': 'Mi', 'me': 'Mi', 'mee': 'Mi', 'knee': 'Mi',
   // Fa variations
-  'fa': 'Fa', 'far': 'Fa', 'fah': 'Fa', 'fog': 'Fa', 'fall': 'Fa',
-  'for': 'Fa', 'four': 'Fa', 'spa': 'Fa',
+  'fa': 'Fa', 'far': 'Fa', 'fah': 'Fa', 'for': 'Fa', 'four': 'Fa',
   // Sol variations
   'sol': 'Sol', 'so': 'Sol', 'sew': 'Sol', 'soul': 'Sol', 'sole': 'Sol',
-  'sold': 'Sol', 'song': 'Sol', 'saw': 'Sol', 'show': 'Sol',
+  'saw': 'Sol', 'show': 'Sol',
   // La variations
-  'la': 'La', 'lah': 'La', 'law': 'La', 'lot': 'La', 'long': 'La',
-  'love': 'La', 'log': 'La', 'ma': 'La',
+  'la': 'La', 'lah': 'La', 'law': 'La', 'ma': 'La',
   // Si/Ti variations
   'si': 'Si', 'ti': 'Si', 'tea': 'Si', 'tee': 'Si', 'see': 'Si',
-  'sea': 'Si', 'she': 'Si', 'key': 'Si', 'tree': 'Si', 'be': 'Si',
+  'sea': 'Si', 'she': 'Si', 'key': 'Si', 'be': 'Si',
 }
 
 // Convert transcript to solfège where possible
 function convertToSolfege(text: string): string {
   const words = text.toLowerCase().split(/\s+/)
   return words.map(word => {
-    // Remove punctuation
     const clean = word.replace(/[.,!?]/g, '')
     return solfegeMap[clean] || word
   }).join(' ')
@@ -87,7 +82,6 @@ function findSoundRegions(
   const data = buffer.getChannelData(0)
   const sampleRate = buffer.sampleRate
   const padding = paddingMs / 1000
-
   const windowSize = Math.floor(0.005 * sampleRate)
   const energies: number[] = []
 
@@ -130,6 +124,7 @@ function findSoundRegions(
     }
   }
 
+  // Merge close regions
   const mergedRegions: Array<{ start: number; end: number }> = []
   const mergeGap = 0.08
 
@@ -155,8 +150,6 @@ export function useRecorder() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const transcriptRef = useRef<string>('')
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const audioDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
 
   const { resumeContext, getContext } = useAudioEngine()
   const setAudioBuffer = useStore((s) => s.setAudioBuffer)
@@ -164,7 +157,6 @@ export function useRecorder() {
   const setSamples = useStore((s) => s.setSamples)
   const setIsRecording = useStore((s) => s.setIsRecording)
   const setMode = useStore((s) => s.setMode)
-  const setAudioLevel = useStore((s) => s.setAudioLevel)
 
   const smartAutoSlice = useCallback((buffer: AudioBuffer, transcript: string) => {
     const words = transcript.trim().split(/\s+/).filter(Boolean)
@@ -182,6 +174,7 @@ export function useRecorder() {
 
     let finalRegions = regions
 
+    // Limit to 10 regions max
     if (regions.length > 10) {
       while (finalRegions.length > 10) {
         let minGap = Infinity
@@ -202,6 +195,7 @@ export function useRecorder() {
         ]
       }
     } else if (regions.length < wordCount && wordCount <= 10 && regions.length > 0) {
+      // Split large regions to match word count
       finalRegions = [...regions]
 
       while (finalRegions.length < Math.min(wordCount, 10)) {
@@ -245,59 +239,22 @@ export function useRecorder() {
     setSamples(samples)
   }, [setSamples])
 
-  // Analyze audio levels for visualizer
-  const analyzeAudio = useCallback(() => {
-    if (!analyserRef.current || !audioDataRef.current) return 0
-
-    analyserRef.current.getByteFrequencyData(audioDataRef.current)
-
-    // Calculate average level
-    let sum = 0
-    for (let i = 0; i < audioDataRef.current.length; i++) {
-      sum += audioDataRef.current[i]
-    }
-    const average = sum / audioDataRef.current.length / 255
-
-    return average
-  }, [])
-
   const startRecording = useCallback(async () => {
     // Resume audio context first
-    const ctx = await resumeContext()
+    await resumeContext()
 
-    // Small delay to let any system sounds finish
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-    const audioConstraints: MediaTrackConstraints = {
-      echoCancellation: false, // Disable to prevent feedback
-      noiseSuppression: false,
-      autoGainControl: false,
-    }
+    // Longer delay on mobile to avoid system sound capture
+    const delay = isMobile ? 300 : 100
+    await new Promise(resolve => setTimeout(resolve, delay))
 
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: audioConstraints
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      }
     })
     streamRef.current = stream
-
-    // Set up audio analyser for live visualization
-    const source = ctx.createMediaStreamSource(stream)
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = 256
-    analyser.smoothingTimeConstant = 0.8
-    source.connect(analyser)
-    analyserRef.current = analyser
-    audioDataRef.current = new Uint8Array(analyser.frequencyBinCount)
-
-    // Start level monitoring
-    const updateLevel = () => {
-      if (recorderRef.current?.state === 'recording') {
-        const level = analyzeAudio()
-        setAudioLevel(level)
-        requestAnimationFrame(updateLevel)
-      } else {
-        setAudioLevel(0)
-      }
-    }
 
     // Determine best mime type
     let mimeType = 'audio/webm'
@@ -312,15 +269,15 @@ export function useRecorder() {
     chunksRef.current = []
     transcriptRef.current = ''
 
-    // Setup speech recognition - ENGLISH ONLY with solfège conversion
+    // Setup speech recognition - only on desktop with support
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
-    if (SpeechRecognition && !isIOS) {
+    if (SpeechRecognition && !isMobile) {
       try {
         const recognition = new SpeechRecognition()
         recognition.continuous = true
         recognition.interimResults = true
-        recognition.lang = 'en-US' // Force English
+        recognition.lang = 'en-US'
 
         recognition.onresult = (event: SpeechRecognitionEvent) => {
           let finalTranscript = ''
@@ -335,16 +292,13 @@ export function useRecorder() {
             }
           }
 
-          // Convert to solfège
           const rawText = (finalTranscript + interimTranscript).trim()
           transcriptRef.current = convertToSolfege(rawText)
           setTranscript(transcriptRef.current)
         }
 
-        recognition.onerror = (event) => {
-          if (event.error !== 'no-speech' && event.error !== 'aborted') {
-            console.warn('Speech recognition:', event.error)
-          }
+        recognition.onerror = () => {
+          // Silent fail - transcription is optional
         }
 
         recognition.onend = () => {
@@ -359,14 +313,14 @@ export function useRecorder() {
 
         recognitionRef.current = recognition
         recognition.start()
-      } catch (e) {
-        console.warn('Could not start speech recognition:', e)
+      } catch {
+        // Speech recognition not available
       }
     }
 
-    // Set initial transcript for mobile/iOS
-    if (isIOS || !SpeechRecognition) {
-      setTranscript('Tap to add lyrics')
+    // On mobile, set empty transcript
+    if (isMobile) {
+      setTranscript('')
     }
 
     recorder.ondataavailable = (e) => {
@@ -376,7 +330,6 @@ export function useRecorder() {
     }
 
     recorder.onstop = async () => {
-      // Stop recognition
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -384,11 +337,6 @@ export function useRecorder() {
           // Already stopped
         }
       }
-
-      // Clean up analyser
-      analyserRef.current = null
-      audioDataRef.current = null
-      setAudioLevel(0)
 
       const blob = new Blob(chunksRef.current, { type: mimeType })
       const audioCtx = getContext()
@@ -405,20 +353,15 @@ export function useRecorder() {
         alert('Error processing audio. Please try recording again.')
       }
 
-      // Cleanup stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
       }
     }
 
-    // Start recording (no timeslice to avoid beeping)
     recorder.start()
     setIsRecording(true)
-
-    // Start level monitoring
-    requestAnimationFrame(updateLevel)
-  }, [resumeContext, getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice, analyzeAudio, setAudioLevel])
+  }, [resumeContext, getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice])
 
   const stopRecording = useCallback(() => {
     if (recorderRef.current && recorderRef.current.state === 'recording') {
@@ -431,11 +374,9 @@ export function useRecorder() {
         // Already stopped
       }
     }
-    setAudioLevel(0)
     setIsRecording(false)
-  }, [setIsRecording, setAudioLevel])
+  }, [setIsRecording])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {

@@ -207,11 +207,6 @@ body {
   padding: 30px;
 }
 
-.audio-visualizer {
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-}
 
 .mic-hint {
   font-size: 0.85rem;
@@ -294,13 +289,12 @@ body {
   margin: 0 10px;
 }
 
-/* --- PLAY PANEL --- */
-.play-panel {
-  position: absolute;
-  bottom: 10vh;
-  width: auto;
-  background: transparent;
-  border: none;
+/* --- PLAY MODE --- */
+.play-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 /* --- HERO TRANSCRIPT --- */
@@ -741,10 +735,6 @@ input[type='range'] {
     font-size: 0.65rem;
   }
 
-  /* Play mode */
-  .play-panel {
-    bottom: 5vh;
-  }
 
   .sequencer-grid.play-mode {
     grid-template-columns: repeat(5, 60px);
@@ -897,10 +887,6 @@ input[type='range'] {
 
   .tools-divider {
     display: block;
-  }
-
-  .play-panel {
-    bottom: 2vh;
   }
 
   .sequencer-grid.play-mode {

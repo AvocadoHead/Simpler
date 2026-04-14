@@ -5,7 +5,6 @@ type Theme = 'dark' | 'light'
 
 interface State {
   mode: Mode
-  previousMode: Mode | null
   theme: Theme
   samples: Sample[]
   selectedIds: number[]  // Multi-select support
@@ -13,7 +12,6 @@ interface State {
   audioBuffer: AudioBuffer | null
   transcript: string
   isRecording: boolean
-  audioLevel: number  // Live audio input level (0-1)
 
   setMode: (mode: Mode) => void
   toggleTheme: () => void
@@ -30,7 +28,6 @@ interface State {
   setAudioBuffer: (buffer: AudioBuffer | null) => void
   setTranscript: (transcript: string) => void
   setIsRecording: (isRecording: boolean) => void
-  setAudioLevel: (level: number) => void
   swapSamples: (fromIndex: number, toIndex: number) => void
 }
 
@@ -54,7 +51,6 @@ const getInitialTheme = (): Theme => {
 
 export const useStore = create<State>((set) => ({
   mode: 'record',
-  previousMode: null,
   theme: getInitialTheme(),
   samples: [],
   selectedIds: [],
@@ -62,12 +58,8 @@ export const useStore = create<State>((set) => ({
   audioBuffer: null,
   transcript: '',
   isRecording: false,
-  audioLevel: 0,
 
-  setMode: (mode) => set((state) => ({
-    mode,
-    previousMode: state.mode,
-  })),
+  setMode: (mode) => set({ mode }),
 
   toggleTheme: () => set((state) => {
     const newTheme = state.theme === 'dark' ? 'light' : 'dark'
@@ -120,8 +112,6 @@ export const useStore = create<State>((set) => ({
   setTranscript: (transcript) => set({ transcript }),
 
   setIsRecording: (isRecording) => set({ isRecording }),
-
-  setAudioLevel: (level) => set({ audioLevel: level }),
 
   swapSamples: (fromIndex, toIndex) => set((state) => {
     const newSamples = [...state.samples]
