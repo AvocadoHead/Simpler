@@ -269,10 +269,10 @@ export function useRecorder() {
     chunksRef.current = []
     transcriptRef.current = ''
 
-    // Setup speech recognition - only on desktop with support
+    // Setup speech recognition - works on desktop and Android, not iOS
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
-    if (SpeechRecognition && !isMobile) {
+    if (SpeechRecognition && !isIOS) {
       try {
         const recognition = new SpeechRecognition()
         recognition.continuous = true
@@ -318,8 +318,8 @@ export function useRecorder() {
       }
     }
 
-    // On mobile, set empty transcript
-    if (isMobile) {
+    // On iOS only, set empty transcript (no speech recognition support)
+    if (isIOS) {
       setTranscript('')
     }
 
