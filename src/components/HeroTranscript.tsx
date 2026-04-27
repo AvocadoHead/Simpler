@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useStore, COLORS } from '../store/useStore'
+import { useSpeechDictation } from '../hooks/useSpeechDictation'
+import { wordsFromTranscript } from '../utils/solfege'
 
 export function HeroTranscript() {
   const transcript = useStore((s) => s.transcript)
@@ -10,6 +12,13 @@ export function HeroTranscript() {
   const isRecording = useStore((s) => s.isRecording)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
+  const {
+    isDictating,
+    dictationError,
+    isSupported: isDictationSupported,
+    startDictation,
+    stopDictation,
+  } = useSpeechDictation((text) => setEditValue(text))
 
   // Show transcript, but hide "Listening..." placeholder when not recording
   const isPlaceholder = transcript === 'Listening...'
@@ -17,7 +26,7 @@ export function HeroTranscript() {
     ? transcript || 'Listening...'
     : isPlaceholder ? '' : transcript
 
-  const words = displayText ? displayText.trim().split(/\s+/).filter(Boolean) : []
+  const words = wordsFromTranscript(displayText)
 
   // Get color for the playing word
   const playingColor = playingIndex !== null && samples[playingIndex]
@@ -43,6 +52,16 @@ export function HeroTranscript() {
     setIsEditing(false)
   }, [])
 
+  const handleDictationClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isDictating) {
+      stopDictation()
+    } else {
+      startDictation()
+    }
+  }, [isDictating, startDictation, stopDictation])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -65,6 +84,17 @@ export function HeroTranscript() {
           autoFocus
           placeholder="Type lyrics (e.g. Do Re Mi Fa Sol La Si)"
         />
+        {isDictationSupported && (
+          <button
+            type="button"
+            className={`dictation-btn ${isDictating ? 'active' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleDictationClick}
+          >
+            {isDictating ? 'Stop dictation' : 'Dictate lyrics'}
+          </button>
+        )}
+        {dictationError && <span className="dictation-error">{dictationError}</span>}
         <span className="edit-hint">Enter to save · Esc to cancel</span>
       </div>
     )
@@ -78,6 +108,16 @@ export function HeroTranscript() {
         onClick={startEditing}
       >
         <span className="tap-hint">Tap to add lyrics</span>
+        {isDictationSupported && (
+          <button
+            type="button"
+            className={`dictation-btn ${isDictating ? 'active' : ''}`}
+            onClick={handleDictationClick}
+          >
+            {isDictating ? 'Stop dictation' : 'Dictate lyrics'}
+          </button>
+        )}
+        {dictationError && <span className="dictation-error">{dictationError}</span>}
       </div>
     )
   }
@@ -87,6 +127,16 @@ export function HeroTranscript() {
       className={`hero-transcript ${mode === 'play' ? 'visible' : ''} ${isRecording ? 'recording' : ''} ${canEdit && transcript ? 'editable' : ''}`}
       onClick={startEditing}
     >
+      {mode === 'edit' && isDictationSupported && (
+        <button
+          type="button"
+          className={`dictation-btn ${isDictating ? 'active' : ''}`}
+          onClick={handleDictationClick}
+        >
+          {isDictating ? 'Stop dictation' : 'Dictate lyrics'}
+        </button>
+      )}
+      {dictationError && mode === 'edit' && <span className="dictation-error">{dictationError}</span>}
       {words.map((word, i) => {
         const isLit = mode === 'play' && playingIndex === i
         return (
