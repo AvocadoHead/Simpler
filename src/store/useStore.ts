@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Mode, Sample } from '../types'
 
 type Theme = 'dark' | 'light'
+export type RecorderStatus = 'idle' | 'starting' | 'recording' | 'processing' | 'error'
 
 interface State {
   mode: Mode
@@ -12,6 +13,8 @@ interface State {
   audioBuffer: AudioBuffer | null
   transcript: string
   isRecording: boolean
+  recorderStatus: RecorderStatus
+  recorderError: string | null
 
   setMode: (mode: Mode) => void
   toggleTheme: () => void
@@ -28,6 +31,8 @@ interface State {
   setAudioBuffer: (buffer: AudioBuffer | null) => void
   setTranscript: (transcript: string) => void
   setIsRecording: (isRecording: boolean) => void
+  setRecorderStatus: (status: RecorderStatus) => void
+  setRecorderError: (error: string | null) => void
   swapSamples: (fromIndex: number, toIndex: number) => void
 }
 
@@ -58,6 +63,8 @@ export const useStore = create<State>((set) => ({
   audioBuffer: null,
   transcript: '',
   isRecording: false,
+  recorderStatus: 'idle',
+  recorderError: null,
 
   setMode: (mode) => set({ mode }),
 
@@ -112,6 +119,10 @@ export const useStore = create<State>((set) => ({
   setTranscript: (transcript) => set({ transcript }),
 
   setIsRecording: (isRecording) => set({ isRecording }),
+
+  setRecorderStatus: (recorderStatus) => set({ recorderStatus }),
+
+  setRecorderError: (recorderError) => set({ recorderError }),
 
   swapSamples: (fromIndex, toIndex) => set((state) => {
     const newSamples = [...state.samples]

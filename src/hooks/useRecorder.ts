@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import { useAudioEngine } from './useAudioEngine'
+import { convertToSolfege, wordsFromTranscript } from '../utils/solfege'
+import { detectDevice, getBestRecorderMimeType, getRecordingErrorMessage } from '../utils/recording'
 
 interface SpeechRecognitionEvent {
   results: SpeechRecognitionResultList
@@ -24,34 +26,7 @@ declare global {
   }
 }
 
-// Detect iOS
-const isIOS = typeof navigator !== 'undefined' && (
-  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-)
-
-// Detect mobile
-const isMobile = typeof navigator !== 'undefined' &&
-  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-
-// Solfège syllables mapping
-const solfegeMap: Record<string, string> = {
-  'do': 'Do', 'doh': 'Do', 'doe': 'Do', 'though': 'Do', 'dough': 'Do', 'door': 'Do', 'go': 'Do',
-  're': 'Re', 'ray': 'Re', 'rey': 'Re', 'rain': 'Re', 'way': 'Re',
-  'mi': 'Mi', 'me': 'Mi', 'mee': 'Mi', 'knee': 'Mi',
-  'fa': 'Fa', 'far': 'Fa', 'fah': 'Fa', 'for': 'Fa', 'four': 'Fa',
-  'sol': 'Sol', 'so': 'Sol', 'sew': 'Sol', 'soul': 'Sol', 'sole': 'Sol', 'saw': 'Sol', 'show': 'Sol',
-  'la': 'La', 'lah': 'La', 'law': 'La', 'ma': 'La',
-  'si': 'Si', 'ti': 'Si', 'tea': 'Si', 'tee': 'Si', 'see': 'Si', 'sea': 'Si', 'she': 'Si', 'key': 'Si', 'be': 'Si',
-}
-
-function convertToSolfege(text: string): string {
-  const words = text.toLowerCase().split(/\s+/)
-  return words.map(word => {
-    const clean = word.replace(/[.,!?]/g, '')
-    return solfegeMap[clean] || word
-  }).join(' ')
-}
+const { isIOS, isMobile } = detectDevice()
 
 // Normalize audio buffer to boost quiet recordings
 function normalizeAudio(buffer: AudioBuffer): AudioBuffer {
@@ -169,9 +144,11 @@ export function useRecorder() {
   const setSamples = useStore((s) => s.setSamples)
   const setIsRecording = useStore((s) => s.setIsRecording)
   const setMode = useStore((s) => s.setMode)
+  const setRecorderStatus = useStore((s) => s.setRecorderStatus)
+  const setRecorderError = useStore((s) => s.setRecorderError)
 
   const smartAutoSlice = useCallback((buffer: AudioBuffer, transcript: string) => {
-    const words = transcript.trim().split(/\s+/).filter(w => w && w !== 'Listening...')
+    const words = wordsFromTranscript(transcript)
     const wordCount = words.length
 
     let regions = findSoundRegions(buffer, {
@@ -243,129 +220,156 @@ export function useRecorder() {
   }, [setSamples])
 
   const startRecording = useCallback(async () => {
-    // Set recording state and transcript FIRST for immediate UI feedback
+    setRecorderStatus('starting')
+    setRecorderError(null)
     setIsRecording(true)
     setTranscript(isMobile ? '' : 'Listening...')
     transcriptRef.current = ''
 
-    // Get microphone - use autoGainControl on mobile for better levels
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: isMobile ? {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: true,  // Enable on mobile for better gain
-      } : {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('This browser does not support microphone recording.')
       }
-    })
-    streamRef.current = stream
 
-    // Determine best mime type
-    let mimeType = 'audio/webm'
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      mimeType = 'audio/webm;codecs=opus'
-    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-      mimeType = 'audio/mp4'
-    }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: isMobile ? {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: true,
+        } : {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
+      })
+      streamRef.current = stream
 
-    const recorder = new MediaRecorder(stream, { mimeType })
-    recorderRef.current = recorder
-    chunksRef.current = []
+      const mimeType = getBestRecorderMimeType(MediaRecorder.isTypeSupported.bind(MediaRecorder))
+      const recorderOptions = mimeType ? { mimeType } : undefined
+      const recorder = new MediaRecorder(stream, recorderOptions)
+      recorderRef.current = recorder
+      chunksRef.current = []
 
-    // Setup speech recognition - DESKTOP ONLY (mobile has permission conflicts)
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      // Live speech recognition stays desktop-only. On mobile, it can compete with
+      // MediaRecorder for the mic and crash/stop recording, so lyrics dictation is
+      // offered after recording in the editor instead.
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
-    if (SpeechRecognition && !isMobile) {
-      try {
-        const recognition = new SpeechRecognition()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = 'en-US'
+      if (SpeechRecognition && !isMobile) {
+        try {
+          const recognition = new SpeechRecognition()
+          recognition.continuous = true
+          recognition.interimResults = true
+          recognition.lang = 'en-US'
 
-        recognition.onresult = (event: SpeechRecognitionEvent) => {
-          let finalTranscript = ''
-          let interimTranscript = ''
+          recognition.onresult = (event: SpeechRecognitionEvent) => {
+            let finalTranscript = ''
+            let interimTranscript = ''
 
-          for (let i = 0; i < event.results.length; i++) {
-            const result = event.results[i]
-            if (result.isFinal) {
-              finalTranscript += result[0].transcript + ' '
-            } else {
-              interimTranscript += result[0].transcript
+            for (let i = 0; i < event.results.length; i++) {
+              const result = event.results[i]
+              if (result.isFinal) {
+                finalTranscript += result[0].transcript + ' '
+              } else {
+                interimTranscript += result[0].transcript
+              }
+            }
+
+            const rawText = (finalTranscript + interimTranscript).trim()
+            if (rawText) {
+              transcriptRef.current = convertToSolfege(rawText)
+              setTranscript(transcriptRef.current)
             }
           }
 
-          const rawText = (finalTranscript + interimTranscript).trim()
-          if (rawText) {
-            transcriptRef.current = convertToSolfege(rawText)
-            setTranscript(transcriptRef.current)
+          recognition.onerror = () => {}
+
+          recognition.onend = () => {
+            if (recorderRef.current?.state === 'recording') {
+              try { recognition.start() } catch {}
+            }
           }
+
+          recognitionRef.current = recognition
+          recognition.start()
+        } catch {
+          recognitionRef.current = null
+        }
+      }
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        setRecorderStatus('processing')
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop() } catch {}
+          recognitionRef.current = null
         }
 
-        recognition.onerror = () => {}
+        const blob = new Blob(chunksRef.current, { type: mimeType || undefined })
+        const audioCtx = getContext()
 
-        recognition.onend = () => {
-          if (recorderRef.current?.state === 'recording') {
-            try { recognition.start() } catch {}
+        try {
+          if (blob.size === 0) {
+            throw new Error('No audio was captured. Please try again.')
+          }
+
+          const arrayBuffer = await blob.arrayBuffer()
+          let buffer = await audioCtx.decodeAudioData(arrayBuffer)
+
+          buffer = normalizeAudio(buffer)
+
+          setAudioBuffer(buffer)
+          smartAutoSlice(buffer, transcriptRef.current)
+          setMode('edit')
+          setRecorderStatus('idle')
+          setRecorderError(null)
+        } catch (error) {
+          const message = getRecordingErrorMessage(error)
+          console.error('Error processing audio:', error)
+          setRecorderStatus('error')
+          setRecorderError(message)
+        } finally {
+          setIsRecording(false)
+          recorderRef.current = null
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop())
+            streamRef.current = null
           }
         }
-
-        recognitionRef.current = recognition
-        recognition.start()
-      } catch {}
-    }
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        chunksRef.current.push(e.data)
-      }
-    }
-
-    recorder.onstop = async () => {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop() } catch {}
       }
 
-      const blob = new Blob(chunksRef.current, { type: mimeType })
-      const audioCtx = getContext()
-
-      try {
-        const arrayBuffer = await blob.arrayBuffer()
-        let buffer = await audioCtx.decodeAudioData(arrayBuffer)
-
-        // Normalize quiet recordings
-        buffer = normalizeAudio(buffer)
-
-        setAudioBuffer(buffer)
-        smartAutoSlice(buffer, transcriptRef.current)
-        setMode('edit')
-      } catch (error) {
-        console.error('Error decoding audio:', error)
-        alert('Error processing audio. Please try again.')
-      }
-
+      await new Promise(resolve => setTimeout(resolve, isMobile ? 500 : 100))
+      recorder.start()
+      setRecorderStatus('recording')
+    } catch (error) {
+      const message = getRecordingErrorMessage(error)
+      console.error('Error starting recording:', error)
+      setRecorderStatus('error')
+      setRecorderError(message)
+      setIsRecording(false)
+      recorderRef.current = null
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
         streamRef.current = null
       }
     }
-
-    // Wait for system sounds to finish, then start recording
-    await new Promise(resolve => setTimeout(resolve, isMobile ? 500 : 100))
-    recorder.start()
-  }, [getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, smartAutoSlice])
+  }, [getContext, setAudioBuffer, setTranscript, setIsRecording, setMode, setRecorderStatus, setRecorderError, smartAutoSlice])
 
   const stopRecording = useCallback(() => {
     if (recorderRef.current && recorderRef.current.state === 'recording') {
+      setRecorderStatus('processing')
       recorderRef.current.stop()
     }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop() } catch {}
     }
     setIsRecording(false)
-  }, [setIsRecording])
+  }, [setIsRecording, setRecorderStatus])
 
   useEffect(() => {
     return () => {

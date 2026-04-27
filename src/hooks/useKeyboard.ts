@@ -27,6 +27,8 @@ export function useKeyboard() {
   const playingRef = useRef<Map<number, Sample>>(new Map())
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return
     if (mode !== 'play') return
     if (e.repeat) return // Ignore key repeat
 
@@ -51,6 +53,8 @@ export function useKeyboard() {
   }, [mode, samples, setSelectedId, setPlayingIndex, playSample])
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    const target = e.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return
     if (mode !== 'play') return
 
     const index = KEY_MAP[e.key]
